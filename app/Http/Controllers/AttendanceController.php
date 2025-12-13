@@ -6,6 +6,7 @@ use App\Models\Student;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AttendanceController extends Controller
@@ -24,8 +25,17 @@ class AttendanceController extends Controller
             $dateFrom = $request->query('date_from');
             $dateTo = $request->query('date_to');
             
+            // Create empty paginator to match expected type
+            $emptyPaginator = new LengthAwarePaginator(
+                collect([]),
+                0,
+                50,
+                1,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+            
             return view('attendance.index', [
-                'rows' => collect([]),
+                'rows' => $emptyPaginator,
                 'groupedRows' => collect([]),
                 'studentPairs' => [],
                 'filters' => [
