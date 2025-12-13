@@ -15,6 +15,13 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Only add indexes if punch_logs table exists (from EasyTimePro parallel database)
+        // If table doesn't exist yet, indexes will be created later via: php artisan trigger:setup
+        $tableExists = DB::select("SHOW TABLES LIKE 'punch_logs'");
+        if (empty($tableExists)) {
+            return; // Table doesn't exist yet, skip index creation
+        }
+        
         // Check if indexes already exist before creating
         $indexes = DB::select("SHOW INDEXES FROM punch_logs");
         $existingIndexes = array_column($indexes, 'Key_name');
