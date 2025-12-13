@@ -36,7 +36,7 @@ return new class extends Migration
                 AFTER INSERT ON punch_logs
                 FOR EACH ROW
                 INSERT INTO notification_queue (roll_number, punch_date, punch_time, queued_at, created_at, updated_at)
-                VALUES (NEW.employee_id, NEW.punch_date, NEW.punch_date, NOW(), NOW(), NOW())
+                VALUES (NEW.employee_id, NEW.punch_date, NEW.punch_time, NOW(), NOW(), NOW())
                 ON DUPLICATE KEY UPDATE updated_at = NOW()
             ");
         }
