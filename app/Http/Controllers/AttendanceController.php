@@ -15,6 +15,34 @@ class AttendanceController extends Controller
 
     public function index(Request $request)
     {
+        // Check if punch_logs table exists (created by EasyTimePro parallel DB)
+        $tableExists = DB::select("SHOW TABLES LIKE 'punch_logs'");
+        if (empty($tableExists)) {
+            // Table doesn't exist yet - show setup message
+            $roll = $request->query('roll');
+            $name = $request->query('name');
+            $dateFrom = $request->query('date_from');
+            $dateTo = $request->query('date_to');
+            
+            return view('attendance.index', [
+                'rows' => collect([]),
+                'groupedRows' => collect([]),
+                'studentPairs' => [],
+                'filters' => [
+                    'roll' => $roll,
+                    'name' => $name,
+                    'date_from' => $dateFrom,
+                    'date_to' => $dateTo,
+                ],
+                'todayStats' => [
+                    'total' => 0,
+                    'in' => 0,
+                    'out' => 0,
+                ],
+                'setup_required' => true,
+            ]);
+        }
+        
         $roll = $request->query('roll');
         $name = $request->query('name');
         $dateFrom = $request->query('date_from');

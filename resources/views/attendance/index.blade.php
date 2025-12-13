@@ -45,6 +45,22 @@
     </form>
 </div>
 
+@if(isset($setup_required) && $setup_required)
+    <div class="brand-card">
+        <div class="alert alert-warning mb-0">
+            <h5 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> EasyTimePro Parallel Database Setup Required</h5>
+            <p class="mb-2">The <code>punch_logs</code> table has not been created yet. This table is automatically created by EasyTimePro's parallel database feature.</p>
+            <hr>
+            <p class="mb-2"><strong>Next Steps:</strong></p>
+            <ol class="mb-0">
+                <li>Configure EasyTimePro to connect to your VPS database (<code>logintask</code>)</li>
+                <li>Once connected, EasyTimePro will automatically create the <code>punch_logs</code> table</li>
+                <li>After the table is created, run: <code>php artisan trigger:setup</code> to create the notification trigger and indexes</li>
+                <li>Refresh this page to see attendance data</li>
+            </ol>
+        </div>
+    </div>
+@else
 <div class="row g-3 mb-3">
     <div class="col-6 col-md-3">
         <div class="stat-card">
@@ -325,6 +341,7 @@
             <div class="mt-2 text-muted">No punches found.</div>
         </div>
     @endif
+@endif
 
     <div class="mt-3">
         {{ $rows->links('pagination::bootstrap-5') }}
