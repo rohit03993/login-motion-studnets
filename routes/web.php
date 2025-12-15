@@ -17,7 +17,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Protected Routes
 Route::middleware('auth')->group(function () {
-    Route::get('/', [AttendanceController::class, 'index'])->name('attendance.index');
+    Route::get('/', [AttendanceController::class, 'index']);
     Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');
     Route::get('/attendance/export', [AttendanceController::class, 'export']);
     Route::get('/attendance/check-updates', [AttendanceController::class, 'checkUpdates'])->name('attendance.check-updates');
