@@ -281,6 +281,7 @@ class AttendanceController extends Controller
             }
             
             // Attach WhatsApp status - COPY EXACT CODE FROM STUDENT PROFILE PAGE
+            // CRITICAL FIX: Unset references after loop to prevent data mixing between students
             foreach ($daily as &$dayData) {
                 foreach ($dayData['pairs'] as &$pair) {
                     // Check for IN WhatsApp status
@@ -337,7 +338,9 @@ class AttendanceController extends Controller
                         }
                     }
                 }
+                unset($pair); // CRITICAL: Unset reference to prevent data mixing
             }
+            unset($dayData); // CRITICAL: Unset reference to prevent data mixing
             
             $studentPairs[$rollNumber] = $daily;
             $processedCount++;

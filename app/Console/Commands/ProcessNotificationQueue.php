@@ -56,16 +56,24 @@ class ProcessNotificationQueue extends Command
 
         foreach ($queueItems as $item) {
             try {
-                // Mark as processing
-                DB::table('notification_queue')
-                    ->where('id', $item->id)
-                    ->update(['processed' => true, 'processed_at' => now()]);
-
                 // Get student info
                 $student = Student::where('roll_number', $item->roll_number)->first();
+                
+                if (!$student) {
+                    // Mark as processed even if skipped (no student)
+                    DB::table('notification_queue')
+                        ->where('id', $item->id)
+                        ->update(['processed' => true, 'processed_at' => now()]);
+                    continue;
+                }
+                
                 $normalizedPhone = $this->normalizeIndianPhone($student->parent_phone ?? null);
                 
-                if (!$student || !$student->alerts_enabled || empty($normalizedPhone)) {
+                if (!$student->alerts_enabled || empty($normalizedPhone)) {
+                    // Mark as processed even if skipped (no student/phone/alerts disabled)
+                    DB::table('notification_queue')
+                        ->where('id', $item->id)
+                        ->update(['processed' => true, 'processed_at' => now()]);
                     continue;
                 }
 
@@ -77,6 +85,10 @@ class ProcessNotificationQueue extends Command
                     ->get();
 
                 if ($punches->isEmpty()) {
+                    // Mark as processed even if no punches found
+                    DB::table('notification_queue')
+                        ->where('id', $item->id)
+                        ->update(['processed' => true, 'processed_at' => now()]);
                     continue;
                 }
 
@@ -91,6 +103,10 @@ class ProcessNotificationQueue extends Command
                     ->exists();
 
                 if ($exists) {
+                    // Mark as processed - already sent
+                    DB::table('notification_queue')
+                        ->where('id', $item->id)
+                        ->update(['processed' => true, 'processed_at' => now()]);
                     continue;
                 }
 
@@ -120,6 +136,11 @@ class ProcessNotificationQueue extends Command
                     'error' => $resp['error'] ?? null,
                 ]);
 
+                // Mark as processed AFTER sending (success or failure)
+                DB::table('notification_queue')
+                    ->where('id', $item->id)
+                    ->update(['processed' => true, 'processed_at' => now()]);
+
                 if (($resp['status'] ?? null) === 'success') {
                     $sentCount++;
                     $this->info("[" . now()->format('H:i:s') . "] Sent {$state} alert to {$normalizedPhone} for {$student->name} ({$item->roll_number}) at {$item->punch_time}");
@@ -127,6 +148,10 @@ class ProcessNotificationQueue extends Command
                     $this->warn("[" . now()->format('H:i:s') . "] Failed to send {$state} alert: " . ($resp['error'] ?? 'Unknown error'));
                 }
             } catch (\Throwable $e) {
+                // Mark as processed even on error to prevent infinite retries
+                DB::table('notification_queue')
+                    ->where('id', $item->id)
+                    ->update(['processed' => true, 'processed_at' => now()]);
                 $this->error("Error processing queue item {$item->id}: " . $e->getMessage());
             }
         }

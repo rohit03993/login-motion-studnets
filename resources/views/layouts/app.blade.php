@@ -280,16 +280,45 @@
                     <span>Attendance CRM</span>
                 </a>
                 <div class="nav-links d-none d-md-flex gap-3">
-                    <a href="{{ url('/attendance') }}" class="nav-link {{ request()->is('attendance*') && !request()->is('students/*') ? 'active' : '' }}">
+                    <a href="{{ url('/attendance') }}" class="nav-link {{ request()->is('attendance*') && !request()->is('students*') ? 'active' : '' }}">
                         <i class="bi bi-list-ul"></i> Live Attendance
+                    </a>
+                    <a href="{{ route('students.index') }}" class="nav-link {{ request()->is('students') && !request()->is('students/*') ? 'active' : '' }}">
+                        <i class="bi bi-people"></i> Students
                     </a>
                     <a href="{{ url('/settings') }}" class="nav-link {{ request()->is('settings*') ? 'active' : '' }}">
                         <i class="bi bi-gear"></i> Settings
                     </a>
                 </div>
             </div>
-            <div class="text-muted small d-none d-md-block">
-                <i class="bi bi-database"></i> Real-time sync
+            <div class="d-flex align-items-center gap-3">
+                @auth
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> {{ auth()->user()->name }}
+                            @if(auth()->user()->isSuperAdmin())
+                                <span class="badge bg-warning text-dark ms-1">Admin</span>
+                            @endif
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            @if(auth()->user()->isSuperAdmin())
+                                <li><a class="dropdown-item" href="{{ route('users.index') }}"><i class="bi bi-people"></i> Manage Users</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                            @endif
+                            <li><a class="dropdown-item" href="{{ route('profile.change-password') }}"><i class="bi bi-key"></i> Change Password</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form method="POST" action="{{ route('logout') }}">
+                                    @csrf
+                                    <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right"></i> Logout</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                @endauth
+                <div class="text-muted small d-none d-md-block">
+                    <i class="bi bi-database"></i> Real-time sync
+                </div>
             </div>
         </div>
     </nav>
