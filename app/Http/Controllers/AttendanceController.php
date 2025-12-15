@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Student;
+use App\Models\ManualAttendance;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +14,9 @@ class AttendanceController extends Controller
 {
     private int $exitThresholdMinutes = 2; // flip state after 2 minutes gap
     private int $bounceWindowSeconds = 10; // ignore duplicates within 10 seconds
+    
+    // Minimum attendance date - only show attendance from this date onwards
+    private const MIN_ATTENDANCE_DATE = '2025-12-15';
 
     public function index(Request $request)
     {
@@ -58,12 +62,24 @@ class AttendanceController extends Controller
         $dateFrom = $request->query('date_from');
         $dateTo = $request->query('date_to');
         
-        // Default to today's date if no date filter is provided
-        // Limit date range to max 30 days for performance
+        // Enforce minimum attendance date (2025-12-15)
+        $minDate = self::MIN_ATTENDANCE_DATE;
+        if ($dateFrom && $dateFrom < $minDate) {
+            $dateFrom = $minDate;
+        }
+        if (!$dateFrom) {
+            $dateFrom = $minDate;
+        }
+        
+        // Default to today's date if no end date is provided
         $today = Carbon::today()->format('Y-m-d');
-        if (!$dateFrom && !$dateTo) {
-            $dateFrom = $today;
+        if (!$dateTo) {
             $dateTo = $today;
+        }
+        
+        // Ensure date range doesn't go before minimum date
+        if ($dateTo < $minDate) {
+            $dateTo = $minDate;
         }
         
         // Enforce maximum date range of 30 days for performance
@@ -75,10 +91,48 @@ class AttendanceController extends Controller
             if ($daysDiff > 30) {
                 // Limit to last 30 days from the end date
                 $dateFrom = $toDate->copy()->subDays(30)->format('Y-m-d');
+                // Ensure it doesn't go before minimum date
+                if ($dateFrom < $minDate) {
+                    $dateFrom = $minDate;
+                }
             }
         }
 
-        $query = DB::table('punch_logs as p')
+        // Unified punches: machine + manual
+        $machine = DB::table('punch_logs')
+            ->selectRaw("employee_id, punch_date, punch_time, device_name, area_name, punch_state_char, verify_type_char, 0 as is_manual")
+            ->where('punch_date', '>=', $minDate); // Always enforce minimum date
+
+        $manualExists = $this->manualTableExists();
+        if ($manualExists) {
+            $manual = DB::table('manual_attendance')
+                ->selectRaw("roll_number as employee_id, punch_date, punch_time, 'Manual' as device_name, 'Manual' as area_name, CASE WHEN state='OUT' THEN 'O' ELSE 'I' END as punch_state_char, 'M' as verify_type_char, 1 as is_manual")
+                ->where('punch_date', '>=', $minDate); // Always enforce minimum date
+        }
+
+        // Apply additional date filters if provided
+        if ($dateFrom && $dateFrom > $minDate) {
+            $machine->where('punch_date', '>=', $dateFrom);
+            if ($manualExists) {
+                $manual->where('punch_date', '>=', $dateFrom);
+            }
+        }
+        if ($dateTo) {
+            $machine->where('punch_date', '<=', $dateTo);
+            if ($manualExists) {
+                $manual->where('punch_date', '<=', $dateTo);
+            }
+        }
+
+        $query = DB::query();
+        if ($manualExists) {
+            $union = $machine->unionAll($manual);
+            $query->fromSub($union, 'p');
+        } else {
+            $query->fromSub($machine, 'p');
+        }
+
+        $query
             ->leftJoin('students as s', 's.roll_number', '=', 'p.employee_id')
             ->leftJoin('whatsapp_logs as w', function($join) {
                 $join->on('w.roll_number', '=', 'p.employee_id')
@@ -104,6 +158,9 @@ class AttendanceController extends Controller
             ->orderBy('p.punch_date', 'desc')
             ->orderBy('p.punch_time', 'desc');
 
+        // Always enforce minimum date
+        $query->where('p.punch_date', '>=', self::MIN_ATTENDANCE_DATE);
+        
         if ($roll) {
             $query->where('p.employee_id', $roll);
         }
@@ -113,7 +170,7 @@ class AttendanceController extends Controller
                   ->orWhere('p.employee_id', 'like', "%{$name}%");
             });
         }
-        if ($dateFrom) {
+        if ($dateFrom && $dateFrom > self::MIN_ATTENDANCE_DATE) {
             $query->where('p.punch_date', '>=', $dateFrom);
         }
         if ($dateTo) {
@@ -155,8 +212,9 @@ class AttendanceController extends Controller
         $groupedRows = $rows->getCollection()->groupBy('employee_id');
         
         // Get WhatsApp logs for all students in the filtered range
-        $whatsappQuery = DB::table('whatsapp_logs');
-        if ($dateFrom) {
+        $whatsappQuery = DB::table('whatsapp_logs')
+            ->where('punch_date', '>=', self::MIN_ATTENDANCE_DATE); // Always enforce minimum date
+        if ($dateFrom && $dateFrom > self::MIN_ATTENDANCE_DATE) {
             $whatsappQuery->where('punch_date', '>=', $dateFrom);
         }
         if ($dateTo) {
@@ -210,31 +268,20 @@ class AttendanceController extends Controller
             // Convert rollNumber to string to match database (employee_id might be int, but roll_number in whatsapp_logs is string)
             $rollStr = (string) $rollNumber;
             
-            // Get all punches for this student in the date range (NO CACHE - same as student profile page)
-            $allPunches = DB::table('punch_logs')
-                ->where('employee_id', $rollNumber)
-                ->where(function($q) use ($dateFrom, $dateTo) {
-                    if ($dateFrom) {
-                        $q->where('punch_date', '>=', $dateFrom);
-                    }
-                    if ($dateTo) {
-                        $q->where('punch_date', '<=', $dateTo);
-                    }
-                })
-                ->orderBy('punch_date')
-                ->orderBy('punch_time')
-                ->get();
+            // Unified punches (machine + manual)
+            $mergedPunches = $this->getUnifiedPunches((string) $rollNumber, $dateFrom, $dateTo);
             
             // Compute IN/OUT pairs using the same logic (NO CACHE - same as student profile page)
-            [$daily, $raw] = $this->computeInOut($allPunches);
+            [$daily, $raw] = $this->computeInOut($mergedPunches);
             
             // Attach WhatsApp status to pairs - USE EXACT SAME LOGIC AS STUDENT PROFILE PAGE
             // Query WhatsApp logs for this specific student (EXACT same as student profile page)
             // IMPORTANT: Use string version to match database (whatsapp_logs.roll_number is string)
             $whatsappQuery = DB::table('whatsapp_logs')
-                ->where('roll_number', $rollStr);
+                ->where('roll_number', $rollStr)
+                ->where('punch_date', '>=', self::MIN_ATTENDANCE_DATE); // Always enforce minimum date
             
-            if ($dateFrom) {
+            if ($dateFrom && $dateFrom > self::MIN_ATTENDANCE_DATE) {
                 $whatsappQuery->where('punch_date', '>=', $dateFrom);
             }
             if ($dateTo) {
@@ -357,23 +404,11 @@ class AttendanceController extends Controller
         
         // Calculate stats from computed pairs for each student
         foreach ($allStudentRolls as $rollNumber) {
-            // Get all punches for this student in the date range (NO CACHE - real-time data)
-            $allPunches = DB::table('punch_logs')
-                ->where('employee_id', $rollNumber)
-                ->where(function($q) use ($dateFrom, $dateTo) {
-                    if ($dateFrom) {
-                        $q->where('punch_date', '>=', $dateFrom);
-                    }
-                    if ($dateTo) {
-                        $q->where('punch_date', '<=', $dateTo);
-                    }
-                })
-                ->orderBy('punch_date')
-                ->orderBy('punch_time')
-                ->get();
+            // Unified punches (machine + manual)
+            $mergedPunches = $this->getUnifiedPunches((string) $rollNumber, $dateFrom, $dateTo);
             
             // Compute IN/OUT pairs using the same logic (NO CACHE - real-time data)
-            [$daily, $raw] = $this->computeInOut($allPunches);
+            [$daily, $raw] = $this->computeInOut($mergedPunches);
             
             // Count accepted punches from pairs
             foreach ($daily as $dayData) {
@@ -412,6 +447,26 @@ class AttendanceController extends Controller
     {
         $dateFrom = $request->query('date_from');
         $dateTo = $request->query('date_to');
+        
+        // Enforce minimum attendance date (2025-12-15)
+        $minDate = self::MIN_ATTENDANCE_DATE;
+        if ($dateFrom && $dateFrom < $minDate) {
+            $dateFrom = $minDate;
+        }
+        if (!$dateFrom) {
+            $dateFrom = $minDate;
+        }
+        
+        // Default to today's date if no end date is provided
+        $today = Carbon::today()->format('Y-m-d');
+        if (!$dateTo) {
+            $dateTo = $today;
+        }
+        
+        // Ensure date range doesn't go before minimum date
+        if ($dateTo < $minDate) {
+            $dateTo = $minDate;
+        }
 
         $student = Student::where('roll_number', $roll)->first();
         // If no mapping yet, create an in-memory placeholder so the page still renders blanks.
@@ -427,21 +482,10 @@ class AttendanceController extends Controller
             ]);
         }
 
-        $query = DB::table('punch_logs')
-            ->where('employee_id', $roll)
-            ->orderBy('punch_date')
-            ->orderBy('punch_time');
+        // Unified punches (machine + manual) for this student
+        $mergedPunches = $this->getUnifiedPunches($roll, $dateFrom, $dateTo);
 
-        if ($dateFrom) {
-            $query->where('punch_date', '>=', $dateFrom);
-        }
-        if ($dateTo) {
-            $query->where('punch_date', '<=', $dateTo);
-        }
-
-        $punches = $query->get();
-
-        [$daily, $raw] = $this->computeInOut($punches);
+        [$daily, $raw] = $this->computeInOut($mergedPunches);
 
         // Create a map of notes by date+time for quick lookup
         $notesMap = [];
@@ -451,7 +495,7 @@ class AttendanceController extends Controller
         }
 
         // Convert raw punches to proper format for display, including notes
-        $rawPunches = $punches->map(function ($p) use ($notesMap) {
+        $rawPunches = $mergedPunches->map(function ($p) use ($notesMap) {
             $key = $p->punch_date . '|' . $p->punch_time;
             return (object) [
                 'punch_date' => $p->punch_date,
@@ -462,9 +506,10 @@ class AttendanceController extends Controller
 
         // Get WhatsApp logs for this student and create a lookup map
         $whatsappQuery = DB::table('whatsapp_logs')
-            ->where('roll_number', $roll);
+            ->where('roll_number', $roll)
+            ->where('punch_date', '>=', self::MIN_ATTENDANCE_DATE); // Always enforce minimum date
 
-        if ($dateFrom) {
+        if ($dateFrom && $dateFrom > self::MIN_ATTENDANCE_DATE) {
             $whatsappQuery->where('punch_date', '>=', $dateFrom);
         }
         if ($dateTo) {
@@ -566,6 +611,26 @@ class AttendanceController extends Controller
         $roll = $request->query('roll');
         $dateFrom = $request->query('date_from');
         $dateTo = $request->query('date_to');
+        
+        // Enforce minimum attendance date (2025-12-15)
+        $minDate = self::MIN_ATTENDANCE_DATE;
+        if ($dateFrom && $dateFrom < $minDate) {
+            $dateFrom = $minDate;
+        }
+        if (!$dateFrom) {
+            $dateFrom = $minDate;
+        }
+        
+        // Default to today's date if no end date is provided
+        $today = Carbon::today()->format('Y-m-d');
+        if (!$dateTo) {
+            $dateTo = $today;
+        }
+        
+        // Ensure date range doesn't go before minimum date
+        if ($dateTo < $minDate) {
+            $dateTo = $minDate;
+        }
 
         $query = DB::table('punch_logs as p')
             ->leftJoin('students as s', 's.roll_number', '=', 'p.employee_id')
@@ -580,13 +645,14 @@ class AttendanceController extends Controller
                 'p.punch_state_char',
                 'p.verify_type_char'
             )
+            ->where('p.punch_date', '>=', $minDate) // Always enforce minimum date
             ->orderBy('p.punch_date', 'desc')
             ->orderBy('p.punch_time', 'desc');
 
         if ($roll) {
             $query->where('p.employee_id', $roll);
         }
-        if ($dateFrom) {
+        if ($dateFrom && $dateFrom > $minDate) {
             $query->where('p.punch_date', '>=', $dateFrom);
         }
         if ($dateTo) {
@@ -623,10 +689,130 @@ class AttendanceController extends Controller
     }
 
     /**
+     * Merge automatic punches with manual attendance marks
+     * 
+     * @param \Illuminate\Support\Collection $automaticPunches From punch_logs
+     * @param string $rollNumber Student roll number
+     * @param string|null $dateFrom Optional date range start
+     * @param string|null $dateTo Optional date range end
+     * @return \Illuminate\Support\Collection Merged punches in unified format
+     */
+    private function mergePunchesWithManual($automaticPunches, string $rollNumber, ?string $dateFrom = null, ?string $dateTo = null): \Illuminate\Support\Collection
+    {
+        // Get manual attendance marks
+        $manualQuery = ManualAttendance::where('roll_number', $rollNumber);
+        
+        if ($dateFrom) {
+            $manualQuery->where('punch_date', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $manualQuery->where('punch_date', '<=', $dateTo);
+        }
+        
+        $manualMarks = $manualQuery->orderBy('punch_date')
+            ->orderBy('punch_time')
+            ->get();
+        
+        // Convert manual marks to same format as automatic punches
+        $manualPunches = $manualMarks->map(function($mark) {
+            return (object) [
+                'punch_date' => $mark->punch_date->format('Y-m-d'),
+                'punch_time' => $mark->punch_time,
+                'is_manual' => true,
+                'state' => $mark->state,
+            ];
+        });
+        
+        // Convert automatic punches to include is_manual flag
+        $automaticPunchesFormatted = $automaticPunches->map(function($punch) {
+            return (object) [
+                'punch_date' => $punch->punch_date,
+                'punch_time' => $punch->punch_time,
+                'is_manual' => false,
+                'state' => null, // Will be computed
+            ];
+        });
+        
+        // Merge both collections
+        $merged = $automaticPunchesFormatted->concat($manualPunches);
+        
+        // Sort by date, then time
+        return $merged->sortBy(function($punch) {
+            return $punch->punch_date . ' ' . $punch->punch_time;
+        })->values();
+    }
+
+    /**
+     * Unified punches (machine + manual) for a student within an optional date range
+     */
+    private function getUnifiedPunches(string $rollNumber, ?string $dateFrom = null, ?string $dateTo = null): \Illuminate\Support\Collection
+    {
+        $minDate = self::MIN_ATTENDANCE_DATE;
+        
+        // Enforce minimum date
+        if ($dateFrom && $dateFrom < $minDate) {
+            $dateFrom = $minDate;
+        }
+        if (!$dateFrom) {
+            $dateFrom = $minDate;
+        }
+        
+        $machine = DB::table('punch_logs')
+            ->selectRaw("employee_id, punch_date, punch_time, 0 as is_manual, null as state")
+            ->where('employee_id', $rollNumber)
+            ->where('punch_date', '>=', $minDate); // Always enforce minimum date
+
+        $manualExists = $this->manualTableExists();
+        if ($manualExists) {
+            $manual = DB::table('manual_attendance')
+                ->selectRaw("roll_number as employee_id, punch_date, punch_time, 1 as is_manual, state")
+                ->where('roll_number', $rollNumber)
+                ->where('punch_date', '>=', $minDate); // Always enforce minimum date
+        }
+
+        if ($dateFrom && $dateFrom > $minDate) {
+            $machine->where('punch_date', '>=', $dateFrom);
+            if ($manualExists) {
+                $manual->where('punch_date', '>=', $dateFrom);
+            }
+        }
+        if ($dateTo) {
+            $machine->where('punch_date', '<=', $dateTo);
+            if ($manualExists) {
+                $manual->where('punch_date', '<=', $dateTo);
+            }
+        }
+
+        if ($manualExists) {
+            $union = $machine->unionAll($manual);
+            return DB::query()
+                ->fromSub($union, 'u')
+                ->orderBy('punch_date')
+                ->orderBy('punch_time')
+                ->get();
+        }
+
+        return $machine
+            ->orderBy('punch_date')
+            ->orderBy('punch_time')
+            ->get();
+    }
+
+    /**
+     * Check if manual_attendance table exists
+     */
+    private function manualTableExists(): bool
+    {
+        $res = DB::select("SHOW TABLES LIKE 'manual_attendance'");
+        return !empty($res);
+    }
+
+    /**
      * Compute in/out pairs per day with thresholds.
      * Uses the same logic as computeStateForPunch but groups into IN/OUT pairs.
+     * Now supports both automatic and manual punches.
      *
-     * @param \Illuminate\Support\Collection $punches sorted asc by date/time
+     * @param \Illuminate\Support\Collection $punches sorted asc by date/time (can include manual marks)
      * @return array [$daily, $raw]
      */
     private function computeInOut($punches): array
@@ -730,12 +916,8 @@ class AttendanceController extends Controller
      */
     private function computeStateForPunch(string $roll, string $punchDate, string $punchTime): string
     {
-        // Get all punches for this student on this date, sorted by time (NO CACHE - real-time data)
-        $punches = DB::table('punch_logs')
-            ->where('employee_id', $roll)
-            ->where('punch_date', $punchDate)
-            ->orderBy('punch_time', 'asc')
-            ->get(['punch_time']);
+        // Unified punches (machine + manual) for the date
+        $punches = $this->getUnifiedPunches($roll, $punchDate, $punchDate);
 
         if ($punches->isEmpty()) {
             return 'IN';
@@ -861,15 +1043,24 @@ class AttendanceController extends Controller
         $dateFrom = $request->query('date_from', Carbon::today()->format('Y-m-d'));
         $dateTo = $request->query('date_to', Carbon::today()->format('Y-m-d'));
         
+        // Enforce minimum attendance date
+        $minDate = self::MIN_ATTENDANCE_DATE;
+        if ($dateFrom < $minDate) {
+            $dateFrom = $minDate;
+        }
+        if ($dateTo < $minDate) {
+            $dateTo = $minDate;
+        }
+        
         // Get total count for the date range (current state)
         $currentTotal = DB::table('punch_logs')
-            ->where('punch_date', '>=', $dateFrom)
+            ->where('punch_date', '>=', max($dateFrom, $minDate))
             ->where('punch_date', '<=', $dateTo)
             ->count();
         
         // Get the latest punch timestamp in the date range
         $latestPunch = DB::table('punch_logs')
-            ->where('punch_date', '>=', $dateFrom)
+            ->where('punch_date', '>=', max($dateFrom, $minDate))
             ->where('punch_date', '<=', $dateTo)
             ->selectRaw('UNIX_TIMESTAMP(CONCAT(punch_date, " ", punch_time)) as punch_timestamp, CONCAT(punch_date, " ", punch_time) as punch_datetime')
             ->orderBy('punch_date', 'desc')
@@ -890,7 +1081,7 @@ class AttendanceController extends Controller
             if ($latestTimestamp > $lastCheck) {
                 // Count records newer than last check
                 $newPunchesCount = DB::table('punch_logs')
-                    ->where('punch_date', '>=', $dateFrom)
+                    ->where('punch_date', '>=', max($dateFrom, self::MIN_ATTENDANCE_DATE))
                     ->where('punch_date', '<=', $dateTo)
                     ->where(DB::raw('UNIX_TIMESTAMP(CONCAT(punch_date, " ", punch_time))'), '>', $lastCheck)
                     ->count();

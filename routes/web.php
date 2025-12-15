@@ -9,6 +9,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StudentsListController;
+use App\Http\Controllers\ManualAttendanceController;
 
 // Authentication Routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -30,6 +31,13 @@ Route::middleware('auth')->group(function () {
 
     // Students List (All authenticated users)
     Route::get('/students', [StudentsListController::class, 'index'])->name('students.index');
+
+    // Manual Attendance (All authenticated users)
+    Route::prefix('manual-attendance')->name('manual-attendance.')->group(function () {
+        Route::get('/', [ManualAttendanceController::class, 'index'])->name('index');
+        Route::post('/mark-present', [ManualAttendanceController::class, 'markPresent'])->name('mark-present');
+        Route::post('/mark-out', [ManualAttendanceController::class, 'markOut'])->name('mark-out');
+    });
 
     // User Management (Super Admin Only)
     Route::prefix('users')->name('users.')->middleware('superadmin')->group(function () {

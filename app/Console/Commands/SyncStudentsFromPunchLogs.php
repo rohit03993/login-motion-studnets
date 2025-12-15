@@ -46,20 +46,21 @@ class SyncStudentsFromPunchLogs extends Command
         $existing = 0;
 
         foreach ($uniqueEmployeeIds as $employeeId) {
-            // Check if student already exists
-            $student = Student::find($employeeId);
-            
-            if (!$student) {
-                // Create new student record with just roll_number
-                Student::create([
-                    'roll_number' => (string) $employeeId,
+            // Use firstOrCreate to preserve existing seeded data
+            // This will only create if student doesn't exist, and won't overwrite existing data
+            $student = Student::firstOrCreate(
+                ['roll_number' => (string) $employeeId],
+                [
                     'name' => null,
                     'father_name' => null,
                     'class_course' => null,
                     'batch' => null,
                     'parent_phone' => null,
                     'alerts_enabled' => true,
-                ]);
+                ]
+            );
+            
+            if ($student->wasRecentlyCreated) {
                 $created++;
                 $this->line("Created student record for roll number: {$employeeId}");
             } else {
