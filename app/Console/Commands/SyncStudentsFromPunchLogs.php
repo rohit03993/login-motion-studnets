@@ -21,19 +21,25 @@ class SyncStudentsFromPunchLogs extends Command
         }
 
         // Get all unique employee_ids from punch_logs
-        // Use raw SQL to get distinct values and ensure string type
-        $uniqueEmployeeIds = DB::select("SELECT DISTINCT CAST(employee_id AS CHAR) as employee_id FROM punch_logs");
-        
-        // Convert to array of strings
-        $uniqueEmployeeIds = array_map(function($row) {
-            return (string) $row->employee_id;
-        }, $uniqueEmployeeIds);
-        
-        // Remove duplicates (in case of any edge cases)
-        $uniqueEmployeeIds = array_unique($uniqueEmployeeIds);
-        $uniqueEmployeeIds = array_values($uniqueEmployeeIds); // Re-index array
+        // Use the same approach as tinker: select distinct and let Laravel handle it
+        $uniqueEmployeeIds = DB::table('punch_logs')
+            ->select('employee_id')
+            ->distinct()
+            ->get()
+            ->pluck('employee_id')
+            ->map(function($id) {
+                return (string) $id; // Ensure string type
+            })
+            ->unique()
+            ->values()
+            ->toArray();
 
         $this->info('Found ' . count($uniqueEmployeeIds) . ' unique employee IDs in punch_logs');
+        
+        // Debug: Show first few IDs
+        if (count($uniqueEmployeeIds) > 0) {
+            $this->line('Sample IDs: ' . implode(', ', array_slice($uniqueEmployeeIds, 0, 5)));
+        }
 
         $created = 0;
         $existing = 0;
