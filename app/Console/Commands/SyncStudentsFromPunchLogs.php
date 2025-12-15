@@ -20,25 +20,26 @@ class SyncStudentsFromPunchLogs extends Command
             return Command::FAILURE;
         }
 
-        // Get all unique employee_ids from punch_logs
-        // Use the same approach as tinker: select distinct and let Laravel handle it
-        $uniqueEmployeeIds = DB::table('punch_logs')
-            ->select('employee_id')
-            ->distinct()
-            ->get()
-            ->pluck('employee_id')
-            ->map(function($id) {
-                return (string) $id; // Ensure string type
-            })
-            ->unique()
-            ->values()
-            ->toArray();
+        // Get all unique employee_ids from punch_logs using raw SQL (same as StudentsListController)
+        // This ensures we get ALL unique values, matching what tinker shows
+        $results = DB::select("SELECT DISTINCT CAST(employee_id AS CHAR) as employee_id FROM punch_logs");
+        
+        // Convert to array of strings
+        $uniqueEmployeeIds = array_map(function($row) {
+            return (string) $row->employee_id;
+        }, $results);
+        
+        // Remove any duplicates (shouldn't happen, but safety check)
+        $uniqueEmployeeIds = array_unique($uniqueEmployeeIds);
+        $uniqueEmployeeIds = array_values($uniqueEmployeeIds); // Re-index array
 
         $this->info('Found ' . count($uniqueEmployeeIds) . ' unique employee IDs in punch_logs');
         
-        // Debug: Show first few IDs
+        // Debug: Show all IDs found
         if (count($uniqueEmployeeIds) > 0) {
-            $this->line('Sample IDs: ' . implode(', ', array_slice($uniqueEmployeeIds, 0, 5)));
+            $this->line('All IDs found: ' . implode(', ', $uniqueEmployeeIds));
+        } else {
+            $this->warn('No employee IDs found in punch_logs table!');
         }
 
         $created = 0;
