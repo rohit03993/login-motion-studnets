@@ -105,7 +105,7 @@ class AttendanceController extends Controller
 
         $manualExists = $this->manualTableExists();
         if ($manualExists) {
-            $manual = DB::table('manual_attendance')
+            $manual = DB::table('manual_attendances')
                 ->selectRaw("roll_number as employee_id, punch_date, punch_time, 'Manual' as device_name, 'Manual' as area_name, CASE WHEN state='OUT' THEN 'O' ELSE 'I' END as punch_state_char, 'M' as verify_type_char, 1 as is_manual")
                 ->where('punch_date', '>=', $minDate); // Always enforce minimum date
         }
@@ -764,7 +764,7 @@ class AttendanceController extends Controller
 
         $manualExists = $this->manualTableExists();
         if ($manualExists) {
-            $manual = DB::table('manual_attendance')
+            $manual = DB::table('manual_attendances')
                 ->selectRaw("roll_number as employee_id, punch_date, punch_time, 1 as is_manual, state")
                 ->where('roll_number', $rollNumber)
                 ->where('punch_date', '>=', $minDate); // Always enforce minimum date
@@ -799,11 +799,11 @@ class AttendanceController extends Controller
     }
 
     /**
-     * Check if manual_attendance table exists
+     * Check if manual_attendances table exists
      */
     private function manualTableExists(): bool
     {
-        $res = DB::select("SHOW TABLES LIKE 'manual_attendance'");
+        $res = DB::select("SHOW TABLES LIKE 'manual_attendances'");
         return !empty($res);
     }
 

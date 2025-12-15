@@ -34,13 +34,13 @@ class StudentsListController extends Controller
         })->exists();
         
         if (!empty($punchLogsExists)) {
-            // Build ID source from punch_logs (and manual_attendance if it exists)
+            // Build ID source from punch_logs (and manual_attendances if it exists)
             $machineIds = DB::table('punch_logs')
                 ->selectRaw('DISTINCT CAST(employee_id AS CHAR) as roll_number');
 
             $manualIds = null;
             if ($this->manualTableExists()) {
-                $manualIds = DB::table('manual_attendance')
+                $manualIds = DB::table('manual_attendances')
                     ->selectRaw('DISTINCT CAST(roll_number AS CHAR) as roll_number');
             }
 
@@ -51,7 +51,7 @@ class StudentsListController extends Controller
                 ->selectRaw("CAST(employee_id AS CHAR) as roll_number, punch_date, punch_time");
             $punchesUnified = $punchesMachine;
             if ($this->manualTableExists()) {
-                $punchesManual = DB::table('manual_attendance')
+                $punchesManual = DB::table('manual_attendances')
                     ->selectRaw("CAST(roll_number AS CHAR) as roll_number, punch_date, punch_time");
                 $punchesUnified = $punchesUnified->unionAll($punchesManual);
             }
@@ -159,7 +159,7 @@ class StudentsListController extends Controller
 
     private function manualTableExists(): bool
     {
-        $res = DB::select("SHOW TABLES LIKE 'manual_attendance'");
+        $res = DB::select("SHOW TABLES LIKE 'manual_attendances'");
         return !empty($res);
     }
 }
