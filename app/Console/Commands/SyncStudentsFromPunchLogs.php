@@ -21,10 +21,15 @@ class SyncStudentsFromPunchLogs extends Command
         }
 
         // Get all unique employee_ids from punch_logs
+        // Use CAST to ensure consistent string type for distinct comparison
         $uniqueEmployeeIds = DB::table('punch_logs')
-            ->select('employee_id')
-            ->distinct()
+            ->selectRaw('DISTINCT CAST(employee_id AS CHAR) as employee_id')
             ->pluck('employee_id')
+            ->map(function($id) {
+                return (string) $id; // Ensure string type
+            })
+            ->unique()
+            ->values()
             ->toArray();
 
         $this->info('Found ' . count($uniqueEmployeeIds) . ' unique employee IDs in punch_logs');
