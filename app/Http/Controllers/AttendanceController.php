@@ -699,6 +699,19 @@ class AttendanceController extends Controller
      */
     private function mergePunchesWithManual($automaticPunches, string $rollNumber, ?string $dateFrom = null, ?string $dateTo = null): \Illuminate\Support\Collection
     {
+        // Check if manual_attendances table exists before querying
+        if (!$this->manualTableExists()) {
+            // If table doesn't exist, just return automatic punches formatted
+            return $automaticPunches->map(function($punch) {
+                return (object) [
+                    'punch_date' => $punch->punch_date,
+                    'punch_time' => $punch->punch_time,
+                    'is_manual' => false,
+                    'state' => null,
+                ];
+            });
+        }
+        
         // Get manual attendance marks
         $manualQuery = ManualAttendance::where('roll_number', $rollNumber);
         

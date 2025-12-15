@@ -556,7 +556,6 @@ class ManualAttendanceController extends Controller
         }
 
         $punchStateChar = $state === 'OUT' ? 'O' : 'I';
-        $now = Carbon::now('Asia/Kolkata');
 
         DB::table('punch_logs')->insert([
             'employee_id' => $rollNumber,
@@ -566,8 +565,6 @@ class ManualAttendanceController extends Controller
             'area_name' => 'Manual',
             'punch_state_char' => $punchStateChar,
             'verify_type_char' => 'M', // Manual
-            'created_at' => $now,
-            'updated_at' => $now,
         ]);
     }
 }

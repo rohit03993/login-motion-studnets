@@ -1,0 +1,323 @@
+================================================================================
+ATTENDANCE CRM - VPS DEPLOYMENT GUIDE
+================================================================================
+
+This guide provides step-by-step instructions for deploying the Attendance CRM
+application to your VPS server (login.taskbook.co.in) safely without crashing.
+
+================================================================================
+PRE-DEPLOYMENT CHECKLIST (Local)
+================================================================================
+
+✓ All code changes committed and tested locally
+✓ Test routes removed (/db-test, /test-inout)
+✓ No hardcoded local paths or localhost references
+✓ .env file is NOT committed (already in .gitignore)
+✓ All migrations are correct and tested
+✓ Manual attendance feature working correctly
+
+================================================================================
+STEP 1: COMMIT AND PUSH TO GIT
+================================================================================
+
+On your LOCAL machine:
+
+1. Check git status:
+   git status
+
+2. Add all changes:
+   git add .
+
+3. Commit with descriptive message:
+   git commit -m "Add manual attendance feature and fix punch_logs insert issue"
+
+4. Push to remote repository:
+   git push origin main
+   (or git push origin master - depending on your branch name)
+
+5. Verify push was successful:
+   git log --oneline -5
+
+================================================================================
+STEP 2: SSH INTO VPS SERVER
+================================================================================
+
+Connect to your VPS:
+ssh root@srv1042659.hosted-by-vdsina.ru
+(or use your CloudPanel credentials)
+
+Navigate to project directory:
+cd /home/taskbook-login/htdocs/login.taskbook.co.in
+
+================================================================================
+STEP 3: BACKUP CURRENT DATABASE (CRITICAL!)
+================================================================================
+
+⚠️ ALWAYS BACKUP BEFORE DEPLOYMENT ⚠️
+
+1. Create database backup:
+   mysqldump -u task5login -p logintask > /home/taskbook-login/backup_logintask_$(date +%Y%m%d_%H%M%S).sql
+
+2. Enter password when prompted: nehapalagra
+
+3. Verify backup file was created:
+   ls -lh /home/taskbook-login/backup_logintask_*.sql
+
+================================================================================
+STEP 4: PULL LATEST CODE FROM GIT
+================================================================================
+
+1. Check current git status:
+   git status
+
+2. Stash any local changes (if any):
+   git stash
+
+3. Pull latest code:
+   git pull origin main
+   (or git pull origin master)
+
+4. If you see conflicts, DO NOT proceed. Contact developer first.
+
+================================================================================
+STEP 5: INSTALL/UPDATE DEPENDENCIES
+================================================================================
+
+1. Install/update Composer dependencies:
+   composer install --no-dev --optimize-autoloader
+
+   Note: --no-dev removes dev dependencies (faster, smaller)
+         --optimize-autoloader improves performance
+
+2. If composer fails, check PHP version:
+   php -v
+   (Should be PHP 8.1 or higher)
+
+================================================================================
+STEP 6: RUN DATABASE MIGRATIONS
+================================================================================
+
+⚠️ IMPORTANT: Only run migrations if new ones exist ⚠️
+
+1. Check migration status:
+   php artisan migrate:status
+
+2. If new migrations are pending, run:
+   php artisan migrate --force
+
+3. Verify migrations completed successfully:
+   php artisan migrate:status
+
+4. If migration fails:
+   - DO NOT run migrate:fresh (this will DELETE all data!)
+   - Check error message
+   - Restore from backup if needed
+   - Contact developer
+
+================================================================================
+STEP 7: CLEAR ALL CACHES
+================================================================================
+
+Clear all Laravel caches to ensure new code is loaded:
+
+1. Clear all caches:
+   php artisan optimize:clear
+
+2. Clear route cache specifically:
+   php artisan route:clear
+
+3. Clear config cache:
+   php artisan config:clear
+
+4. Clear view cache:
+   php artisan view:clear
+
+5. Manually remove cached files (if needed):
+   rm -f bootstrap/cache/routes-v7.php
+   rm -f bootstrap/cache/routes.php
+   rm -f bootstrap/cache/config.php
+
+================================================================================
+STEP 8: SET FILE PERMISSIONS
+================================================================================
+
+Set correct permissions for Laravel to work:
+
+1. Set storage permissions:
+   chmod -R 775 storage bootstrap/cache
+
+2. Set ownership (if needed):
+   chown -R www-data:www-data storage bootstrap/cache
+   (or chown -R taskbook-login:taskbook-login if using different user)
+
+3. Verify permissions:
+   ls -la storage/
+   ls -la bootstrap/cache/
+
+================================================================================
+STEP 9: VERIFY ENVIRONMENT CONFIGURATION
+================================================================================
+
+1. Check .env file exists:
+   ls -la .env
+
+2. Verify critical settings in .env:
+   - APP_ENV=production
+   - APP_DEBUG=false
+   - APP_URL=https://login.taskbook.co.in
+   - DB_DATABASE=logintask
+   - DB_USERNAME=task5login
+   - DB_PASSWORD=nehapalagra
+   - APP_TIMEZONE=Asia/Kolkata
+
+3. If .env is missing or incorrect:
+   - Copy from .env.example (if exists)
+   - Update with correct values
+   - NEVER commit .env to git
+
+================================================================================
+STEP 10: OPTIMIZE FOR PRODUCTION
+================================================================================
+
+1. Cache configuration:
+   php artisan config:cache
+
+2. Cache routes:
+   php artisan route:cache
+
+3. Cache views:
+   php artisan view:cache
+
+4. Optimize autoloader:
+   composer dump-autoload --optimize
+
+================================================================================
+STEP 11: VERIFY QUEUE WORKER IS RUNNING
+================================================================================
+
+1. Check if queue worker service is running:
+   systemctl status laravel-queue-worker
+
+2. If not running, start it:
+   systemctl start laravel-queue-worker
+
+3. Enable auto-start on boot:
+   systemctl enable laravel-queue-worker
+
+4. Check logs if issues:
+   journalctl -u laravel-queue-worker -f
+
+================================================================================
+STEP 12: TEST THE APPLICATION
+================================================================================
+
+1. Test basic functionality:
+   - Visit: https://login.taskbook.co.in
+   - Login with admin credentials
+   - Check Live Attendance page loads
+   - Check Students page loads
+   - Check Manual Attendance page loads
+
+2. Test manual attendance:
+   - Go to Manual Attendance
+   - Select a batch and date
+   - Try marking a student as present
+   - Verify WhatsApp notification is sent
+   - Check Live Attendance shows the manual entry
+
+3. Check error logs if issues:
+   tail -f storage/logs/laravel.log
+
+================================================================================
+STEP 13: VERIFY NGINX CONFIGURATION
+================================================================================
+
+1. Check Nginx config (if using CloudPanel):
+   - Login to CloudPanel
+   - Go to Sites > login.taskbook.co.in
+   - Verify Document Root points to: /home/taskbook-login/htdocs/login.taskbook.co.in/public
+
+2. Test Nginx configuration:
+   nginx -t
+
+3. Reload Nginx if config changed:
+   systemctl reload nginx
+
+================================================================================
+ROLLBACK PROCEDURE (If Something Goes Wrong)
+================================================================================
+
+If deployment fails and you need to rollback:
+
+1. Restore database from backup:
+   mysql -u task5login -p logintask < /home/taskbook-login/backup_logintask_YYYYMMDD_HHMMSS.sql
+
+2. Revert code to previous commit:
+   git log --oneline -10  # Find previous commit hash
+   git reset --hard <previous-commit-hash>
+   git push --force origin main  # ⚠️ Only if necessary
+
+3. Clear caches:
+   php artisan optimize:clear
+
+4. Restart services:
+   systemctl restart php8.1-fpm  # Adjust PHP version
+   systemctl restart nginx
+
+================================================================================
+POST-DEPLOYMENT VERIFICATION
+================================================================================
+
+After successful deployment, verify:
+
+✓ Application loads without errors
+✓ Login works correctly
+✓ Live Attendance shows data
+✓ Students list page loads
+✓ Manual Attendance feature works
+✓ WhatsApp notifications are sent
+✓ Queue worker is processing jobs
+✓ No errors in storage/logs/laravel.log
+
+================================================================================
+TROUBLESHOOTING COMMON ISSUES
+================================================================================
+
+Issue: "Route [manual-attendance.index] not defined"
+Fix: Run php artisan optimize:clear and php artisan route:cache
+
+Issue: "500 Server Error"
+Fix: Check storage/logs/laravel.log for specific error
+
+Issue: "Database connection failed"
+Fix: Verify .env DB credentials and MySQL service is running
+
+Issue: "Permission denied"
+Fix: Run chmod -R 775 storage bootstrap/cache
+
+Issue: "Class not found"
+Fix: Run composer dump-autoload --optimize
+
+Issue: "Queue not processing"
+Fix: Restart queue worker: systemctl restart laravel-queue-worker
+
+================================================================================
+IMPORTANT NOTES
+================================================================================
+
+1. NEVER run php artisan migrate:fresh on production (deletes all data!)
+
+2. ALWAYS backup database before migrations
+
+3. Test on local environment first before deploying
+
+4. Monitor logs after deployment: tail -f storage/logs/laravel.log
+
+5. Keep backups for at least 7 days
+
+6. If unsure about any step, STOP and ask for help
+
+================================================================================
+END OF DEPLOYMENT GUIDE
+================================================================================
+
