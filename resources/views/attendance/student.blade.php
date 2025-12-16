@@ -99,7 +99,7 @@
             <div class="fw-medium">{{ $student->batch ?? '—' }}</div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="muted small mb-1">Parent Mobile</div>
+            <div class="muted small mb-1">Primary Mobile</div>
             <div class="fw-medium">
                 @if($student->parent_phone)
                     <a href="tel:{{ $student->parent_phone }}" class="text-decoration-none">
@@ -107,6 +107,32 @@
                     </a>
                 @else
                     —
+                @endif
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="muted small mb-1">Secondary Mobile</div>
+            <div class="fw-medium">
+                @if($student->parent_phone_secondary)
+                    <a href="tel:{{ $student->parent_phone_secondary }}" class="text-decoration-none">
+                        <i class="bi bi-telephone"></i> {{ $student->parent_phone_secondary }}
+                    </a>
+                @else
+                    —
+                @endif
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="muted small mb-1">WhatsApp Send To</div>
+            <div>
+                @if($student->whatsapp_send_to === 'primary')
+                    <span class="badge bg-primary"><i class="bi bi-phone"></i> Primary Only</span>
+                @elseif($student->whatsapp_send_to === 'secondary')
+                    <span class="badge bg-info"><i class="bi bi-phone"></i> Secondary Only</span>
+                @elseif($student->whatsapp_send_to === 'both')
+                    <span class="badge bg-success"><i class="bi bi-phone"></i> Both Numbers</span>
+                @else
+                    <span class="badge bg-secondary">Primary Only</span>
                 @endif
             </div>
         </div>
@@ -141,10 +167,36 @@
             <label class="form-label">Batch</label>
             <input type="text" name="batch" value="{{ old('batch', $student->batch) }}" class="form-control" placeholder="Batch">
         </div>
-        <div class="col-12">
-            <label class="form-label">Parent Mobile (+91 auto)</label>
+        <div class="col-12 col-md-6">
+            <label class="form-label">Primary Mobile (+91 auto)</label>
             <input type="text" name="parent_phone" value="{{ old('parent_phone', $student->parent_phone) }}" class="form-control" placeholder="10-digit or +91XXXXXXXXXX">
-            <div class="form-text small">Enter 10 digits; +91 will be auto-applied. Used for WhatsApp alerts.</div>
+            <div class="form-text small">Enter 10 digits; +91 will be auto-applied.</div>
+        </div>
+        <div class="col-12 col-md-6">
+            <label class="form-label">Secondary Mobile (+91 auto)</label>
+            <input type="text" name="parent_phone_secondary" value="{{ old('parent_phone_secondary', $student->parent_phone_secondary) }}" class="form-control" placeholder="10-digit or +91XXXXXXXXXX">
+            <div class="form-text small">Optional second number for WhatsApp alerts.</div>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Send WhatsApp To</label>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="whatsapp_send_to" id="whatsapp_primary" value="primary" {{ old('whatsapp_send_to', $student->whatsapp_send_to ?? 'primary') === 'primary' ? 'checked' : '' }}>
+                <label class="form-check-label" for="whatsapp_primary">
+                    <i class="bi bi-phone"></i> Primary number only
+                </label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="whatsapp_send_to" id="whatsapp_secondary" value="secondary" {{ old('whatsapp_send_to', $student->whatsapp_send_to ?? 'primary') === 'secondary' ? 'checked' : '' }}>
+                <label class="form-check-label" for="whatsapp_secondary">
+                    <i class="bi bi-phone"></i> Secondary number only
+                </label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="whatsapp_send_to" id="whatsapp_both" value="both" {{ old('whatsapp_send_to', $student->whatsapp_send_to ?? 'primary') === 'both' ? 'checked' : '' }}>
+                <label class="form-check-label" for="whatsapp_both">
+                    <i class="bi bi-phone"></i> Both numbers
+                </label>
+            </div>
         </div>
         <div class="col-12">
             <div class="form-check">
@@ -194,6 +246,7 @@
                     $pairCount = count($d['pairs']);
                     $accordionId = 'date-' . str_replace('-', '', $d['date']);
                     $isFirst = $index === 0;
+                    $isAbsent = isset($d['is_absent']) && $d['is_absent'];
                 @endphp
                 <div class="accordion-item">
                     <h2 class="accordion-header" id="heading{{ $accordionId }}">
@@ -204,14 +257,24 @@
                                     <span class="text-muted ms-2">{{ $dateObj->format('D') }}</span>
                                 </div>
                                 <div>
-                                    <span class="badge bg-primary">{{ $pairCount }} {{ $pairCount === 1 ? 'pair' : 'pairs' }}</span>
+                                    @if($isAbsent)
+                                        <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Absent</span>
+                                    @else
+                                        <span class="badge bg-primary">{{ $pairCount }} {{ $pairCount === 1 ? 'pair' : 'pairs' }}</span>
+                                    @endif
                                 </div>
                             </div>
                         </button>
                     </h2>
                     <div id="collapse{{ $accordionId }}" class="accordion-collapse collapse {{ $isFirst ? 'show' : '' }}" aria-labelledby="heading{{ $accordionId }}" data-bs-parent="#attendanceAccordion">
                         <div class="accordion-body">
-                            @if($hasPairs)
+                            @if($isAbsent)
+                                <div class="text-center py-4">
+                                    <i class="bi bi-x-circle text-danger" style="font-size: 3rem;"></i>
+                                    <p class="mt-3 mb-0 text-danger fw-bold">There is no attendance record for this date till now</p>
+                                    <p class="text-muted small mt-2">Attendance will be recorded when student punches IN</p>
+                                </div>
+                            @elseif($hasPairs)
                                 <div class="table-responsive">
                                     <table class="table table-striped table-hover table-sm align-middle mb-0">
                                         <thead class="table-light">
@@ -266,6 +329,13 @@
                                                         @if($pair['out'])
                                                             <div>
                                                                 <span class="badge bg-danger"><i class="bi bi-box-arrow-right"></i> {{ $pair['out'] }}</span>
+                                                                @if(isset($pair['is_auto_out']) && $pair['is_auto_out'])
+                                                                    <small class="d-block mt-1">
+                                                                        <span class="badge bg-warning text-dark" style="font-size: 0.7rem;" title="Automatically marked OUT at 7 PM">
+                                                                            <i class="bi bi-clock"></i> Auto OUT
+                                                                        </span>
+                                                                    </small>
+                                                                @endif
                                                             </div>
                                                             @if(isset($pair['whatsapp_out']))
                                                                 @php $waOut = $pair['whatsapp_out']; @endphp

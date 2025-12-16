@@ -23,6 +23,8 @@ class StudentController extends Controller
             'class_course' => 'nullable|string|max:255',
             'batch' => 'nullable|string|max:255',
             'parent_phone' => 'nullable|string|max:20',
+            'parent_phone_secondary' => 'nullable|string|max:20',
+            'whatsapp_send_to' => 'nullable|in:primary,secondary,both',
             'alerts_enabled' => 'nullable|boolean',
         ]);
 
@@ -31,14 +33,26 @@ class StudentController extends Controller
         $student->class_course = $validated['class_course'] ?? null;
         $student->batch = $validated['batch'] ?? null;
 
-        // Handle parent phone normalization
-        $normalized = $this->normalizeIndianPhone($validated['parent_phone'] ?? null);
-        if (!empty($validated['parent_phone']) && !$normalized) {
+        // Handle primary phone normalization
+        $normalizedPrimary = $this->normalizeIndianPhone($validated['parent_phone'] ?? null);
+        if (!empty($validated['parent_phone']) && !$normalizedPrimary) {
             return back()
                 ->withErrors(['parent_phone' => 'Enter a valid 10-digit Indian mobile (auto +91) or +91XXXXXXXXXX.'])
                 ->withInput();
         }
-        $student->parent_phone = $normalized;
+        $student->parent_phone = $normalizedPrimary;
+
+        // Handle secondary phone normalization
+        $normalizedSecondary = $this->normalizeIndianPhone($validated['parent_phone_secondary'] ?? null);
+        if (!empty($validated['parent_phone_secondary']) && !$normalizedSecondary) {
+            return back()
+                ->withErrors(['parent_phone_secondary' => 'Enter a valid 10-digit Indian mobile (auto +91) or +91XXXXXXXXXX.'])
+                ->withInput();
+        }
+        $student->parent_phone_secondary = $normalizedSecondary;
+
+        // Set WhatsApp send to preference
+        $student->whatsapp_send_to = $validated['whatsapp_send_to'] ?? 'primary';
         $student->alerts_enabled = $request->boolean('alerts_enabled', true);
 
         $student->save();

@@ -206,6 +206,13 @@
                                                                     @if($pair['out'])
                                                                         <div>
                                                                             <span class="badge bg-danger" style="font-size: 0.9rem;"><i class="bi bi-box-arrow-right"></i> {{ $pair['out'] }}</span>
+                                                                            @if(isset($pair['is_auto_out']) && $pair['is_auto_out'])
+                                                                                <small class="d-block mt-1">
+                                                                                    <span class="badge bg-warning text-dark" style="font-size: 0.7rem;" title="Automatically marked OUT at 7 PM">
+                                                                                        <i class="bi bi-clock"></i> Auto OUT
+                                                                                    </span>
+                                                                                </small>
+                                                                            @endif
                                                                         </div>
                                                                         @if(isset($pair['whatsapp_out']))
                                                                             @php $waOut = $pair['whatsapp_out']; @endphp

@@ -70,8 +70,13 @@ class SendPunchWhatsapp extends Command
 
         foreach ($grouped as $roll => $dates) {
             $student = Student::where('roll_number', $roll)->first();
-            $normalizedPhone = $this->normalizeIndianPhone($student->parent_phone ?? null);
-            if (!$student || !$student->alerts_enabled || empty($normalizedPhone)) {
+            if (!$student || !$student->alerts_enabled) {
+                continue;
+            }
+            
+            // Get phone numbers based on whatsapp_send_to setting
+            $phones = $student->getWhatsAppPhones();
+            if (empty($phones)) {
                 continue;
             }
 
@@ -143,27 +148,35 @@ class SendPunchWhatsapp extends Command
                         ? \App\Models\Setting::get('aisensy_template_in', config('services.aisensy.template_in'))
                         : \App\Models\Setting::get('aisensy_template_out', config('services.aisensy.template_out'));
 
-                    // Send WhatsApp message
-                    $resp = $aisensy->send($normalizedPhone, $messageVars, $tpl);
+                    // Send WhatsApp message to all phones
+                    $phones = $student->getWhatsAppPhones();
+                    $phoneSentCount = 0;
+                    
+                    foreach ($phones as $phone) {
+                        $resp = $aisensy->send($phone, $messageVars, $tpl);
 
-                    // Log the attempt
-                    // Note: student_id is a foreign key to students.roll_number (string)
-                    WhatsAppLog::create([
-                        'student_id' => $student->roll_number,
-                        'roll_number' => $roll,
-                        'state' => $state,
-                        'punch_date' => $p->punch_date,
-                        'punch_time' => $p->punch_time,
-                        'sent_at' => now(),
-                        'status' => $resp['status'] ?? null,
-                        'error' => $resp['error'] ?? null,
-                    ]);
+                        // Log the attempt for each phone
+                        WhatsAppLog::create([
+                            'student_id' => $student->roll_number,
+                            'roll_number' => $roll,
+                            'state' => $state,
+                            'punch_date' => $p->punch_date,
+                            'punch_time' => $p->punch_time,
+                            'sent_at' => now(),
+                            'status' => $resp['status'] ?? null,
+                            'error' => $resp['error'] ?? null,
+                        ]);
 
-                    if (($resp['status'] ?? null) === 'success') {
+                        if (($resp['status'] ?? null) === 'success') {
+                            $phoneSentCount++;
+                            $this->info("Sent {$state} alert to {$phone} for {$student->name} ({$roll}) at {$p->punch_time}");
+                        } else {
+                            $this->warn("Failed to send {$state} alert to {$phone} for {$student->name} ({$roll}): " . ($resp['error'] ?? 'Unknown error'));
+                        }
+                    }
+                    
+                    if ($phoneSentCount > 0) {
                         $sentCount++;
-                        $this->info("Sent {$state} alert to {$normalizedPhone} for {$student->name} ({$roll}) at {$p->punch_time}");
-                    } else {
-                        $this->warn("Failed to send {$state} alert to {$normalizedPhone} for {$student->name} ({$roll}): " . ($resp['error'] ?? 'Unknown error'));
                     }
 
                     $lastTime = $current;

@@ -43,9 +43,15 @@ class SendPunchWhatsappForceIn extends Command
 
         foreach ($firstPunchPerStudent as $roll => $p) {
             $student = Student::where('roll_number', $roll)->first();
-            $phone = $student->parent_phone ?? null;
-            if (empty($phone)) {
-                $this->warn("Skip roll {$roll}: no parent_phone");
+            if (!$student || !$student->alerts_enabled) {
+                $skipped++;
+                continue;
+            }
+
+            // Get phone numbers based on whatsapp_send_to setting
+            $phones = $student->getWhatsAppPhones();
+            if (empty($phones)) {
+                $this->warn("Skip roll {$roll}: no phone numbers");
                 $skipped++;
                 continue;
             }
@@ -60,24 +66,32 @@ class SendPunchWhatsappForceIn extends Command
             ];
 
             $tpl = \App\Models\Setting::get('aisensy_template_in', config('services.aisensy.template_in'));
-            $resp = $aisensy->send($phone, $messageVars, $tpl);
+            
+            $phoneSentCount = 0;
+            foreach ($phones as $phone) {
+                $resp = $aisensy->send($phone, $messageVars, $tpl);
 
-            WhatsAppLog::create([
-                'student_id' => $student->roll_number, // using roll_number as reference
-                'roll_number' => $roll,
-                'state' => 'IN',
-                'punch_date' => $p->punch_date,
-                'punch_time' => $p->punch_time,
-                'sent_at' => now(),
-                'status' => $resp['status'] ?? null,
-                'error' => $resp['error'] ?? null,
-            ]);
+                WhatsAppLog::create([
+                    'student_id' => $student->roll_number,
+                    'roll_number' => $roll,
+                    'state' => 'IN',
+                    'punch_date' => $p->punch_date,
+                    'punch_time' => $p->punch_time,
+                    'sent_at' => now(),
+                    'status' => $resp['status'] ?? null,
+                    'error' => $resp['error'] ?? null,
+                ]);
 
-            if (($resp['status'] ?? null) === 'success') {
+                if (($resp['status'] ?? null) === 'success') {
+                    $phoneSentCount++;
+                    $this->info("Sent IN to {$phone} for roll {$roll} at {$p->punch_time}");
+                } else {
+                    $this->warn("Failed IN to {$phone} for roll {$roll}: " . ($resp['error'] ?? 'Unknown error'));
+                }
+            }
+            
+            if ($phoneSentCount > 0) {
                 $sent++;
-                $this->info("Sent IN to {$phone} for roll {$roll} at {$p->punch_time}");
-            } else {
-                $this->warn("Failed IN to {$phone} for roll {$roll}: " . ($resp['error'] ?? 'Unknown error'));
             }
         }
 

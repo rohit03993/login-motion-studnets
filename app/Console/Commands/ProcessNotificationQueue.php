@@ -67,10 +67,19 @@ class ProcessNotificationQueue extends Command
                     continue;
                 }
                 
-                $normalizedPhone = $this->normalizeIndianPhone($student->parent_phone ?? null);
+                if (!$student->alerts_enabled) {
+                    // Mark as processed even if skipped (alerts disabled)
+                    DB::table('notification_queue')
+                        ->where('id', $item->id)
+                        ->update(['processed' => true, 'processed_at' => now()]);
+                    continue;
+                }
+
+                // Get phone numbers based on whatsapp_send_to setting
+                $phones = $student->getWhatsAppPhones();
                 
-                if (!$student->alerts_enabled || empty($normalizedPhone)) {
-                    // Mark as processed even if skipped (no student/phone/alerts disabled)
+                if (empty($phones)) {
+                    // Mark as processed even if skipped (no phone numbers)
                     DB::table('notification_queue')
                         ->where('id', $item->id)
                         ->update(['processed' => true, 'processed_at' => now()]);
@@ -95,7 +104,7 @@ class ProcessNotificationQueue extends Command
                 // Compute IN/OUT state using the same logic
                 $state = $this->computeStateForPunch($punches, $item->punch_time, $item->punch_date);
 
-                // Check if already sent
+                // Check if already sent to all phones (check if any phone has been sent)
                 $exists = WhatsAppLog::where('roll_number', $item->roll_number)
                     ->where('punch_date', $item->punch_date)
                     ->where('punch_time', $item->punch_time)
@@ -110,7 +119,7 @@ class ProcessNotificationQueue extends Command
                     continue;
                 }
 
-                // Send WhatsApp message
+                // Send WhatsApp message to all phones
                 $safeName = $student->name ?: (string) $item->roll_number;
                 $messageVars = [
                     (string) $safeName,
@@ -123,30 +132,37 @@ class ProcessNotificationQueue extends Command
                     ? \App\Models\Setting::get('aisensy_template_in', config('services.aisensy.template_in'))
                     : \App\Models\Setting::get('aisensy_template_out', config('services.aisensy.template_out'));
 
-                $resp = $aisensy->send($normalizedPhone, $messageVars, $tpl);
+                $phoneSentCount = 0;
+                foreach ($phones as $phone) {
+                    $resp = $aisensy->send($phone, $messageVars, $tpl);
 
-                WhatsAppLog::create([
-                    'student_id' => $student->roll_number,
-                    'roll_number' => $item->roll_number,
-                    'state' => $state,
-                    'punch_date' => $item->punch_date,
-                    'punch_time' => $item->punch_time,
-                    'sent_at' => now(),
-                    'status' => $resp['status'] ?? null,
-                    'error' => $resp['error'] ?? null,
-                ]);
+                    WhatsAppLog::create([
+                        'student_id' => $student->roll_number,
+                        'roll_number' => $item->roll_number,
+                        'state' => $state,
+                        'punch_date' => $item->punch_date,
+                        'punch_time' => $item->punch_time,
+                        'sent_at' => now(),
+                        'status' => $resp['status'] ?? null,
+                        'error' => $resp['error'] ?? null,
+                    ]);
+
+                    if (($resp['status'] ?? null) === 'success') {
+                        $phoneSentCount++;
+                        $this->info("[" . now()->format('H:i:s') . "] Sent {$state} alert to {$phone} for {$student->name} ({$item->roll_number}) at {$item->punch_time}");
+                    } else {
+                        $this->warn("[" . now()->format('H:i:s') . "] Failed to send {$state} alert to {$phone}: " . ($resp['error'] ?? 'Unknown error'));
+                    }
+                }
+
+                if ($phoneSentCount > 0) {
+                    $sentCount++;
+                }
 
                 // Mark as processed AFTER sending (success or failure)
                 DB::table('notification_queue')
                     ->where('id', $item->id)
                     ->update(['processed' => true, 'processed_at' => now()]);
-
-                if (($resp['status'] ?? null) === 'success') {
-                    $sentCount++;
-                    $this->info("[" . now()->format('H:i:s') . "] Sent {$state} alert to {$normalizedPhone} for {$student->name} ({$item->roll_number}) at {$item->punch_time}");
-                } else {
-                    $this->warn("[" . now()->format('H:i:s') . "] Failed to send {$state} alert: " . ($resp['error'] ?? 'Unknown error'));
-                }
             } catch (\Throwable $e) {
                 // Mark as processed even on error to prevent infinite retries
                 DB::table('notification_queue')

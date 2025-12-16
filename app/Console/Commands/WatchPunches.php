@@ -64,8 +64,13 @@ class WatchPunches extends Command
 
         foreach ($grouped as $roll => $dates) {
             $student = Student::where('roll_number', $roll)->first();
-            $normalizedPhone = $this->normalizeIndianPhone($student->parent_phone ?? null);
-            if (!$student || !$student->alerts_enabled || empty($normalizedPhone)) {
+            if (!$student || !$student->alerts_enabled) {
+                continue;
+            }
+            
+            // Get phone numbers based on whatsapp_send_to setting
+            $phones = $student->getWhatsAppPhones();
+            if (empty($phones)) {
                 continue;
             }
 
@@ -128,24 +133,31 @@ class WatchPunches extends Command
                         ? \App\Models\Setting::get('aisensy_template_in', config('services.aisensy.template_in'))
                         : \App\Models\Setting::get('aisensy_template_out', config('services.aisensy.template_out'));
 
-                    $resp = $aisensy->send($normalizedPhone, $messageVars, $tpl);
+                    $phoneSentCount = 0;
+                    foreach ($phones as $phone) {
+                        $resp = $aisensy->send($phone, $messageVars, $tpl);
 
-                    WhatsAppLog::create([
-                        'student_id' => $student->roll_number,
-                        'roll_number' => $roll,
-                        'state' => $state,
-                        'punch_date' => $p->punch_date,
-                        'punch_time' => $p->punch_time,
-                        'sent_at' => now(),
-                        'status' => $resp['status'] ?? null,
-                        'error' => $resp['error'] ?? null,
-                    ]);
+                        WhatsAppLog::create([
+                            'student_id' => $student->roll_number,
+                            'roll_number' => $roll,
+                            'state' => $state,
+                            'punch_date' => $p->punch_date,
+                            'punch_time' => $p->punch_time,
+                            'sent_at' => now(),
+                            'status' => $resp['status'] ?? null,
+                            'error' => $resp['error'] ?? null,
+                        ]);
 
-                    if (($resp['status'] ?? null) === 'success') {
+                        if (($resp['status'] ?? null) === 'success') {
+                            $phoneSentCount++;
+                            $this->info("[" . now()->format('H:i:s') . "] Sent {$state} alert to {$phone} for {$student->name} ({$roll}) at {$p->punch_time}");
+                        } else {
+                            $this->warn("[" . now()->format('H:i:s') . "] Failed to send {$state} alert to {$phone} for {$student->name} ({$roll}): " . ($resp['error'] ?? 'Unknown error'));
+                        }
+                    }
+                    
+                    if ($phoneSentCount > 0) {
                         $sentCount++;
-                        $this->info("[" . now()->format('H:i:s') . "] Sent {$state} alert to {$normalizedPhone} for {$student->name} ({$roll}) at {$p->punch_time}");
-                    } else {
-                        $this->warn("[" . now()->format('H:i:s') . "] Failed to send {$state} alert to {$normalizedPhone} for {$student->name} ({$roll}): " . ($resp['error'] ?? 'Unknown error'));
                     }
 
                     $lastTime = $current;

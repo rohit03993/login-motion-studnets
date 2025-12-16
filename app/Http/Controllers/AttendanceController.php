@@ -507,9 +507,42 @@ class AttendanceController extends Controller
 
         [$daily, $raw] = $this->computeInOut($mergedPunches);
         
+        // Get dates that have attendance records
+        $datesWithAttendance = collect($daily)->pluck('date')->toArray();
+        
+        // Add absent dates (dates that have passed OR today, but have no attendance)
+        $today = Carbon::today()->format('Y-m-d');
+        $dateFromObj = Carbon::parse($dateFrom);
+        $dateToObj = Carbon::parse($dateTo);
+        
+        // Generate all dates in the range
+        $allDatesInRange = [];
+        $currentDate = $dateFromObj->copy();
+        while ($currentDate->lte($dateToObj)) {
+            $dateStr = $currentDate->format('Y-m-d');
+            // Mark as absent if date has passed (including today) and has no attendance
+            // This means: if date <= today and no attendance record exists, mark as absent
+            if ($dateStr <= $today && !in_array($dateStr, $datesWithAttendance)) {
+                $allDatesInRange[] = $dateStr;
+            }
+            $currentDate->addDay();
+        }
+        
+        // Add absent dates to daily array
+        foreach ($allDatesInRange as $absentDate) {
+            $daily[] = [
+                'date' => $absentDate,
+                'pairs' => [],
+                'is_absent' => true, // Flag to indicate this is an absent date
+            ];
+        }
+        
         // Calculate total duration for this student
         $totalDurationSeconds = 0;
         foreach ($daily as $dayData) {
+            if (isset($dayData['is_absent']) && $dayData['is_absent']) {
+                continue; // Skip absent dates in duration calculation
+            }
             foreach ($dayData['pairs'] as $pair) {
                 if ($pair['in'] && $pair['out']) {
                     $inTime = Carbon::parse($dayData['date'] . ' ' . $pair['in']);
@@ -939,6 +972,26 @@ class AttendanceController extends Controller
 
                 $lastAcceptedTime = $current;
             }
+
+            // Auto-add OUT at 7 PM for incomplete pairs (has IN but no OUT)
+            $today = Carbon::today()->format('Y-m-d');
+            $currentDate = Carbon::parse($date);
+            $isPastDate = $currentDate->format('Y-m-d') < $today;
+            $isToday = $currentDate->format('Y-m-d') === $today;
+            $isPast7PM = Carbon::now()->hour >= 19; // 7 PM = 19:00
+
+            foreach ($entries as &$entry) {
+                if ($entry['in'] && !$entry['out']) {
+                    // Auto-add OUT at 7 PM if:
+                    // 1. Date has passed (past date), OR
+                    // 2. Today and it's past 7 PM
+                    if ($isPastDate || ($isToday && $isPast7PM)) {
+                        $entry['out'] = '19:00:00';
+                        $entry['is_auto_out'] = true; // Flag to indicate auto-generated OUT
+                    }
+                }
+            }
+            unset($entry); // Unset reference
 
             $daily[] = [
                 'date' => $date,

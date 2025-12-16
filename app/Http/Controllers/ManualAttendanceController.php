@@ -144,76 +144,111 @@ class ManualAttendanceController extends Controller
         $student = Student::where('roll_number', $rollNumber)->first();
         
         // Send WhatsApp if student has phone and alerts enabled
-        $whatsappSent = false;
-        $whatsappError = null;
-        
-        if (!$student) {
-            $whatsappError = 'Student not found';
-        } elseif (!$student->alerts_enabled) {
-            $whatsappError = 'Alerts disabled for this student';
-        } elseif (empty($student->parent_phone)) {
-            $whatsappError = 'No parent phone number found';
-        } else {
-            $normalizedPhone = $this->normalizeIndianPhone($student->parent_phone);
-            if (!$normalizedPhone) {
-                $whatsappError = 'Invalid phone number format: ' . $student->parent_phone;
-            } else {
-                $safeName = $student->name ?: (string) $rollNumber;
-                $messageVars = [
-                    (string) $safeName,
-                    (string) $rollNumber,
-                    (string) $time,
-                    (string) $date,
-                ];
-                
-                $tpl = \App\Models\Setting::get('aisensy_template_in', config('services.aisensy.template_in'));
-                
-                \Log::info('Sending WhatsApp for manual attendance', [
-                    'roll_number' => $rollNumber,
-                    'phone' => $normalizedPhone,
-                    'template' => $tpl,
-                    'message_vars' => $messageVars,
-                ]);
-                
-                $resp = $aisensy->send($normalizedPhone, $messageVars, $tpl);
-                
-                \Log::info('WhatsApp response for manual attendance', [
-                    'roll_number' => $rollNumber,
-                    'response' => $resp,
-                ]);
-                
-                // Log WhatsApp
-                WhatsAppLog::create([
-                    'student_id' => $student->roll_number,
-                    'roll_number' => $rollNumber,
-                    'state' => 'IN',
-                    'punch_date' => $date,
-                    'punch_time' => $time,
-                    'sent_at' => now(),
-                    'status' => $resp['status'] ?? null,
-                    'error' => $resp['error'] ?? null,
-                ]);
-                
-                $whatsappSent = ($resp['status'] ?? null) === 'success';
-                if (!$whatsappSent) {
-                    $whatsappError = $resp['error'] ?? 'Unknown error';
-                }
-            }
-        }
+        $whatsappResults = $this->sendWhatsAppToStudent($student, $rollNumber, $date, $time, 'IN', $aisensy);
         
         $message = 'Student marked as present successfully.';
-        if ($whatsappSent) {
-            $message .= ' WhatsApp sent successfully.';
-        } elseif ($whatsappError) {
-            $message .= ' WhatsApp not sent: ' . $whatsappError;
+        if ($whatsappResults['sent_count'] > 0) {
+            $message .= ' WhatsApp sent to ' . $whatsappResults['sent_count'] . ' number(s).';
+        } elseif ($whatsappResults['error']) {
+            $message .= ' WhatsApp not sent: ' . $whatsappResults['error'];
         }
         
         return response()->json([
             'success' => true,
             'message' => $message,
-            'whatsapp_sent' => $whatsappSent,
-            'whatsapp_error' => $whatsappError,
+            'whatsapp_sent' => $whatsappResults['sent_count'] > 0,
+            'whatsapp_error' => $whatsappResults['error'],
         ]);
+    }
+    
+    /**
+     * Send WhatsApp to student based on whatsapp_send_to setting
+     * Returns array with 'sent_count', 'error', and 'results'
+     */
+    private function sendWhatsAppToStudent($student, string $rollNumber, string $date, string $time, string $state, AisensyService $aisensy): array
+    {
+        if (!$student) {
+            return ['sent_count' => 0, 'error' => 'Student not found', 'results' => []];
+        }
+
+        if (!$student->alerts_enabled) {
+            return ['sent_count' => 0, 'error' => 'Alerts disabled for this student', 'results' => []];
+        }
+
+        // Get phone numbers based on whatsapp_send_to setting
+        $phones = $student->getWhatsAppPhones();
+        
+        if (empty($phones)) {
+            return ['sent_count' => 0, 'error' => 'No phone number found', 'results' => []];
+        }
+
+        $safeName = $student->name ?: (string) $rollNumber;
+        $messageVars = [
+            (string) $safeName,
+            (string) $rollNumber,
+            (string) $time,
+            (string) $date,
+        ];
+
+        $tpl = $state === 'IN'
+            ? \App\Models\Setting::get('aisensy_template_in', config('services.aisensy.template_in'))
+            : \App\Models\Setting::get('aisensy_template_out', config('services.aisensy.template_out'));
+
+        $sentCount = 0;
+        $results = [];
+        $errors = [];
+
+        foreach ($phones as $phone) {
+            \Log::info('Sending WhatsApp for manual attendance', [
+                'roll_number' => $rollNumber,
+                'phone' => $phone,
+                'state' => $state,
+                'template' => $tpl,
+                'message_vars' => $messageVars,
+            ]);
+
+            $resp = $aisensy->send($phone, $messageVars, $tpl);
+
+            \Log::info('WhatsApp response for manual attendance', [
+                'roll_number' => $rollNumber,
+                'phone' => $phone,
+                'state' => $state,
+                'response' => $resp,
+            ]);
+
+            // Log WhatsApp for each phone
+            WhatsAppLog::create([
+                'student_id' => $student->roll_number,
+                'roll_number' => $rollNumber,
+                'state' => $state,
+                'punch_date' => $date,
+                'punch_time' => $time,
+                'sent_at' => now(),
+                'status' => $resp['status'] ?? null,
+                'error' => $resp['error'] ?? null,
+            ]);
+
+            $isSuccess = ($resp['status'] ?? null) === 'success';
+            if ($isSuccess) {
+                $sentCount++;
+            } else {
+                $errors[] = $phone . ': ' . ($resp['error'] ?? 'Unknown error');
+            }
+
+            $results[] = [
+                'phone' => $phone,
+                'success' => $isSuccess,
+                'error' => $resp['error'] ?? null,
+            ];
+        }
+
+        $errorMessage = !empty($errors) ? implode('; ', $errors) : null;
+
+        return [
+            'sent_count' => $sentCount,
+            'error' => $errorMessage,
+            'results' => $results,
+        ];
     }
     
     /**
@@ -264,68 +299,14 @@ class ManualAttendanceController extends Controller
         $this->insertManualPunch($rollNumber, $date, $time, 'OUT');
 
         // Send WhatsApp for manual OUT
-        $whatsappSent = false;
-        $whatsappError = null;
-
         $student = Student::where('roll_number', $rollNumber)->first();
-        if (!$student) {
-            $whatsappError = 'Student not found';
-        } elseif (!$student->alerts_enabled) {
-            $whatsappError = 'Alerts disabled for this student';
-        } elseif (empty($student->parent_phone)) {
-            $whatsappError = 'No parent phone number found';
-        } else {
-            $normalizedPhone = $this->normalizeIndianPhone($student->parent_phone);
-            if (!$normalizedPhone) {
-                $whatsappError = 'Invalid phone number format: ' . $student->parent_phone;
-            } else {
-                $safeName = $student->name ?: (string) $rollNumber;
-                $messageVars = [
-                    (string) $safeName,
-                    (string) $rollNumber,
-                    (string) $time,
-                    (string) $date,
-                ];
-
-                $tpl = \App\Models\Setting::get('aisensy_template_out', config('services.aisensy.template_out'));
-
-                \Log::info('Sending WhatsApp OUT for manual attendance', [
-                    'roll_number' => $rollNumber,
-                    'phone' => $normalizedPhone,
-                    'template' => $tpl,
-                    'message_vars' => $messageVars,
-                ]);
-
-                $resp = $aisensy->send($normalizedPhone, $messageVars, $tpl);
-
-                \Log::info('WhatsApp OUT response for manual attendance', [
-                    'roll_number' => $rollNumber,
-                    'response' => $resp,
-                ]);
-
-                WhatsAppLog::create([
-                    'student_id' => $student->roll_number,
-                    'roll_number' => $rollNumber,
-                    'state' => 'OUT',
-                    'punch_date' => $date,
-                    'punch_time' => $time,
-                    'sent_at' => now(),
-                    'status' => $resp['status'] ?? null,
-                    'error' => $resp['error'] ?? null,
-                ]);
-
-                $whatsappSent = ($resp['status'] ?? null) === 'success';
-                if (!$whatsappSent) {
-                    $whatsappError = $resp['error'] ?? 'Unknown error';
-                }
-            }
-        }
+        $whatsappResults = $this->sendWhatsAppToStudent($student, $rollNumber, $date, $time, 'OUT', $aisensy);
 
         $message = 'Student marked as OUT successfully.';
-        if ($whatsappSent) {
-            $message .= ' WhatsApp sent successfully.';
-        } elseif ($whatsappError) {
-            $message .= ' WhatsApp not sent: ' . $whatsappError;
+        if ($whatsappResults['sent_count'] > 0) {
+            $message .= ' WhatsApp sent to ' . $whatsappResults['sent_count'] . ' number(s).';
+        } elseif ($whatsappResults['error']) {
+            $message .= ' WhatsApp not sent: ' . $whatsappResults['error'];
         }
 
         return response()->json([

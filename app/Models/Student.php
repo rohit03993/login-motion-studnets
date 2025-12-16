@@ -17,6 +17,8 @@ class Student extends Model
         'class_course',
         'batch',
         'parent_phone',
+        'parent_phone_secondary',
+        'whatsapp_send_to',
         'alerts_enabled',
     ];
 
@@ -44,6 +46,30 @@ class Student extends Model
             return null;
         }
         return Batch::where('name', $this->batch)->first();
+    }
+
+    /**
+     * Get phone numbers to send WhatsApp based on whatsapp_send_to setting
+     * Returns array of normalized phone numbers
+     */
+    public function getWhatsAppPhones(): array
+    {
+        $phones = [];
+        $sendTo = $this->whatsapp_send_to ?? 'primary';
+
+        if ($sendTo === 'primary' || $sendTo === 'both') {
+            if (!empty($this->parent_phone)) {
+                $phones[] = $this->parent_phone;
+            }
+        }
+
+        if ($sendTo === 'secondary' || $sendTo === 'both') {
+            if (!empty($this->parent_phone_secondary)) {
+                $phones[] = $this->parent_phone_secondary;
+            }
+        }
+
+        return array_filter($phones); // Remove any empty values
     }
 }
 
