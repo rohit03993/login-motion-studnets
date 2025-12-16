@@ -12,8 +12,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('students', function (Blueprint $table) {
-            $table->string('parent_phone_secondary', 20)->nullable()->after('parent_phone');
-            $table->enum('whatsapp_send_to', ['primary', 'secondary', 'both'])->default('primary')->after('parent_phone_secondary');
+            // Check if columns don't exist before adding (safer approach)
+            if (!Schema::hasColumn('students', 'parent_phone_secondary')) {
+                $table->string('parent_phone_secondary', 20)->nullable();
+            }
+            if (!Schema::hasColumn('students', 'whatsapp_send_to')) {
+                $table->enum('whatsapp_send_to', ['primary', 'secondary', 'both'])->default('primary');
+            }
         });
     }
 
