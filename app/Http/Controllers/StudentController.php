@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 class StudentController extends Controller
 {
     /**
-     * Update student information (name, father, class, batch).
+     * Update student information (name, father, class, batch, contact, alerts).
      */
     public function update(Request $request, string $roll): RedirectResponse
     {
@@ -22,12 +22,25 @@ class StudentController extends Controller
             'father_name' => 'nullable|string|max:255',
             'class_course' => 'nullable|string|max:255',
             'batch' => 'nullable|string|max:255',
+            'parent_phone' => 'nullable|string|max:20',
+            'alerts_enabled' => 'nullable|boolean',
         ]);
 
         $student->name = $validated['name'] ?? null;
         $student->father_name = $validated['father_name'] ?? null;
         $student->class_course = $validated['class_course'] ?? null;
         $student->batch = $validated['batch'] ?? null;
+
+        // Handle parent phone normalization
+        $normalized = $this->normalizeIndianPhone($validated['parent_phone'] ?? null);
+        if (!empty($validated['parent_phone']) && !$normalized) {
+            return back()
+                ->withErrors(['parent_phone' => 'Enter a valid 10-digit Indian mobile (auto +91) or +91XXXXXXXXXX.'])
+                ->withInput();
+        }
+        $student->parent_phone = $normalized;
+        $student->alerts_enabled = $request->boolean('alerts_enabled', true);
+
         $student->save();
 
         return back()->with('success', 'Student information updated.');

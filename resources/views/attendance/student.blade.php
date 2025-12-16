@@ -60,8 +60,28 @@
 
 <!-- Student Information Card -->
 <div class="brand-card mb-3">
-    <div class="section-title mb-3"><i class="bi bi-info-circle"></i> Student Information</div>
-    <div class="row g-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="section-title mb-0"><i class="bi bi-info-circle"></i> Student Information</div>
+        <button type="button" class="btn btn-outline-primary btn-sm" id="editStudentBtn">
+            <i class="bi bi-pencil"></i> Edit
+        </button>
+    </div>
+    
+    @if ($errors->any())
+        <div class="alert alert-danger py-2 mb-3">
+            <ul class="mb-0 small">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+    @if (session('success'))
+        <div class="alert alert-success py-2 mb-3">{{ session('success') }}</div>
+    @endif
+    
+    <!-- Read-Only View -->
+    <div id="studentInfoView" class="row g-3">
         <div class="col-6 col-md-3">
             <div class="muted small mb-1">Name</div>
             <div class="fw-medium">{{ $student->name ?? '—' }}</div>
@@ -101,78 +121,64 @@
             </div>
         </div>
     </div>
-</div>
-
-<!-- Update Forms -->
-<div class="row g-3 mb-3">
-    <div class="col-12 col-md-6">
-        <div class="brand-card h-100">
-            <div class="section-title mb-3"><i class="bi bi-pencil-square"></i> Update Student Info</div>
-            @if ($errors->any())
-                <div class="alert alert-danger py-2 mb-3">
-                    <ul class="mb-0 small">
-                        @foreach ($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-            @if (session('success'))
-                <div class="alert alert-success py-2 mb-3">{{ session('success') }}</div>
-            @endif
-            <form method="post" action="{{ route('students.update', $roll) }}" class="row gy-2 gx-2">
-                @csrf
-                <div class="col-12">
-                    <label class="form-label">Name</label>
-                    <input type="text" name="name" value="{{ old('name', $student->name) }}" class="form-control" placeholder="Student name">
-                </div>
-                <div class="col-12">
-                    <label class="form-label">Father's Name</label>
-                    <input type="text" name="father_name" value="{{ old('father_name', $student->father_name) }}" class="form-control" placeholder="Father's name">
-                </div>
-                <div class="col-6">
-                    <label class="form-label">Class/Course</label>
-                    <input type="text" name="class_course" value="{{ old('class_course', $student->class_course) }}" class="form-control" placeholder="Class">
-                </div>
-                <div class="col-6">
-                    <label class="form-label">Batch</label>
-                    <input type="text" name="batch" value="{{ old('batch', $student->batch) }}" class="form-control" placeholder="Batch">
-                </div>
-                <div class="col-12">
-                    <button class="btn btn-primary w-100"><i class="bi bi-save"></i> Save Student Info</button>
-                </div>
-            </form>
+    
+    <!-- Edit Form (Hidden by default) -->
+    <form method="post" action="{{ route('students.update', $roll) }}" id="studentInfoForm" class="row gy-2 gx-2" style="display: none;">
+        @csrf
+        <div class="col-12">
+            <label class="form-label">Name</label>
+            <input type="text" name="name" value="{{ old('name', $student->name) }}" class="form-control" placeholder="Student name">
         </div>
-    </div>
-    <div class="col-12 col-md-6">
-        <div class="brand-card h-100">
-            <div class="section-title mb-3"><i class="bi bi-telephone"></i> Update Contact</div>
-            <form method="post" action="{{ route('students.updateContact', $roll) }}" class="row gy-2 gx-2">
-                @csrf
-                <div class="col-12">
-                    <label class="form-label">Parent Mobile (+91 auto)</label>
-                    <input type="text" name="parent_phone" value="{{ old('parent_phone', $student->parent_phone) }}" class="form-control" placeholder="10-digit or +91XXXXXXXXXX">
-                    <div class="form-text small">Enter 10 digits; +91 will be auto-applied. Used for WhatsApp alerts.</div>
-                </div>
-                <div class="col-12">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" value="1" id="alerts_enabled" name="alerts_enabled" {{ old('alerts_enabled', $student->alerts_enabled) ? 'checked' : '' }}>
-                        <label class="form-check-label" for="alerts_enabled">
-                            <i class="bi bi-bell"></i> Enable WhatsApp Alerts
-                        </label>
-                    </div>
-                </div>
-                <div class="col-12">
-                    <button class="btn btn-primary w-100"><i class="bi bi-save"></i> Save Contact</button>
-                </div>
-            </form>
+        <div class="col-12">
+            <label class="form-label">Father's Name</label>
+            <input type="text" name="father_name" value="{{ old('father_name', $student->father_name) }}" class="form-control" placeholder="Father's name">
         </div>
-    </div>
+        <div class="col-6">
+            <label class="form-label">Class/Course</label>
+            <input type="text" name="class_course" value="{{ old('class_course', $student->class_course) }}" class="form-control" placeholder="Class">
+        </div>
+        <div class="col-6">
+            <label class="form-label">Batch</label>
+            <input type="text" name="batch" value="{{ old('batch', $student->batch) }}" class="form-control" placeholder="Batch">
+        </div>
+        <div class="col-12">
+            <label class="form-label">Parent Mobile (+91 auto)</label>
+            <input type="text" name="parent_phone" value="{{ old('parent_phone', $student->parent_phone) }}" class="form-control" placeholder="10-digit or +91XXXXXXXXXX">
+            <div class="form-text small">Enter 10 digits; +91 will be auto-applied. Used for WhatsApp alerts.</div>
+        </div>
+        <div class="col-12">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" value="1" id="alerts_enabled" name="alerts_enabled" {{ old('alerts_enabled', $student->alerts_enabled) ? 'checked' : '' }}>
+                <label class="form-check-label" for="alerts_enabled">
+                    <i class="bi bi-bell"></i> Enable WhatsApp Alerts
+                </label>
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Save Changes
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="cancelEditBtn">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </button>
+            </div>
+        </div>
+    </form>
 </div>
 
 <!-- Daily Attendance Timeline -->
 <div class="brand-card mb-3">
-    <div class="section-title mb-3"><i class="bi bi-calendar-check"></i> Daily Attendance Timeline</div>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="section-title mb-0"><i class="bi bi-calendar-check"></i> Daily Attendance Timeline</div>
+        @if(isset($totalDuration))
+            <div>
+                <span class="badge bg-info" style="font-size: 0.95rem;">
+                    <i class="bi bi-clock-history"></i> Total: {{ $totalDuration['hours'] }}h {{ $totalDuration['minutes'] }}m
+                </span>
+            </div>
+        @endif
+    </div>
     @if(count($daily) > 0)
         @php
             // Sort daily array by date descending (latest first)
@@ -334,5 +340,29 @@
     @endif
 </div>
 
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const editBtn = document.getElementById('editStudentBtn');
+    const cancelBtn = document.getElementById('cancelEditBtn');
+    const viewDiv = document.getElementById('studentInfoView');
+    const formDiv = document.getElementById('studentInfoForm');
+    
+    editBtn.addEventListener('click', function() {
+        viewDiv.style.display = 'none';
+        formDiv.style.display = 'block';
+        editBtn.style.display = 'none';
+    });
+    
+    cancelBtn.addEventListener('click', function() {
+        viewDiv.style.display = 'block';
+        formDiv.style.display = 'none';
+        editBtn.style.display = 'block';
+        // Reset form to original values
+        formDiv.reset();
+    });
+});
+</script>
+@endpush
 
 @endsection

@@ -19,5 +19,31 @@ class Student extends Model
         'parent_phone',
         'alerts_enabled',
     ];
+
+    protected $casts = [
+        'alerts_enabled' => 'boolean',
+    ];
+
+    /**
+     * Get Course model by matching class_course name
+     */
+    public function getCourse()
+    {
+        if (!$this->class_course) {
+            return null;
+        }
+        return Course::where('name', $this->class_course)->first();
+    }
+
+    /**
+     * Get Batch model by matching batch name
+     */
+    public function getBatch()
+    {
+        if (!$this->batch) {
+            return null;
+        }
+        return Batch::where('name', $this->batch)->first();
+    }
 }
 

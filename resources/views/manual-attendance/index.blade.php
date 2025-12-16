@@ -185,6 +185,35 @@
     </div>
 @endif
 
+<!-- Time Input Modal -->
+<div class="modal fade" id="timeInputModal" tabindex="-1" aria-labelledby="timeInputModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="timeInputModalLabel">Enter Time</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="timeInputForm">
+                    <div class="mb-3">
+                        <label for="punchTime" class="form-label">
+                            <i class="bi bi-clock"></i> Time (HH:MM format)
+                        </label>
+                        <input type="time" class="form-control" id="punchTime" name="punchTime" required>
+                        <div class="form-text">Enter the time for this manual attendance entry</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmTimeBtn">
+                    <i class="bi bi-check-circle"></i> Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Success/Error Toast -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 11;">
     <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
@@ -204,6 +233,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const toastMessage = document.getElementById('toast-message');
     const toast = new bootstrap.Toast(toastEl);
     
+    // Time Input Modal
+    const timeInputModal = new bootstrap.Modal(document.getElementById('timeInputModal'));
+    const punchTimeInput = document.getElementById('punchTime');
+    const confirmTimeBtn = document.getElementById('confirmTimeBtn');
+    const timeInputForm = document.getElementById('timeInputForm');
+    
+    let pendingAction = null; // Store the action to execute after time input
+    
     function showToast(title, message, type = 'success') {
         toastTitle.textContent = title;
         toastMessage.textContent = message;
@@ -216,133 +253,162 @@ document.addEventListener('DOMContentLoaded', function() {
         toast.show();
     }
     
-    // Mark Present
-    console.log('Setting up mark present buttons...');
-    const markPresentButtons = document.querySelectorAll('.mark-present-btn');
-    console.log('Found', markPresentButtons.length, 'mark present buttons');
+    function submitAttendance(action, rollNumber, date, time) {
+        const url = action === 'present' 
+            ? '{{ route("manual-attendance.mark-present") }}'
+            : '{{ route("manual-attendance.mark-out") }}';
+        
+        const actionText = action === 'present' ? 'present' : 'out';
+        
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                roll_number: rollNumber,
+                date: date,
+                time: time
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => {
+                    throw new Error(err.message || 'Server error: ' + response.status);
+                }).catch(e => {
+                    throw new Error('Server error: ' + response.status);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                const whatsappMsg = data.whatsapp_sent ? ' WhatsApp sent.' : (data.whatsapp_sent === false ? ' WhatsApp not sent (check phone number).' : '');
+                showToast('Success', data.message + whatsappMsg);
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                showToast('Error', data.message || `Failed to mark student as ${actionText}.`, 'error');
+                if (pendingAction && pendingAction.btnElement) {
+                    pendingAction.btnElement.disabled = false;
+                    pendingAction.btnElement.innerHTML = pendingAction.originalText;
+                }
+            }
+        })
+        .catch(error => {
+            console.error(`Error marking ${actionText}:`, error);
+            showToast('Error', error.message || `Failed to mark student as ${actionText}. Please try again.`, 'error');
+            if (pendingAction && pendingAction.btnElement) {
+                pendingAction.btnElement.disabled = false;
+                pendingAction.btnElement.innerHTML = pendingAction.originalText;
+            }
+        });
+    }
     
-    markPresentButtons.forEach(btn => {
+    // Handle time input confirmation
+    confirmTimeBtn.addEventListener('click', function() {
+        const time = punchTimeInput.value;
+        if (!time) {
+            alert('Please enter a time');
+            return;
+        }
+        
+        if (pendingAction) {
+            timeInputModal.hide();
+            const btnElement = pendingAction.btnElement;
+            btnElement.disabled = true;
+            btnElement.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Marking...';
+            
+            submitAttendance(
+                pendingAction.action,
+                pendingAction.rollNumber,
+                pendingAction.date,
+                time
+            );
+            
+            pendingAction = null;
+        }
+    });
+    
+    // Reset modal when closed
+    document.getElementById('timeInputModal').addEventListener('hidden.bs.modal', function() {
+        punchTimeInput.value = '';
+        if (pendingAction && pendingAction.btnElement) {
+            pendingAction.btnElement.disabled = false;
+            pendingAction.btnElement.innerHTML = pendingAction.originalText;
+        }
+        pendingAction = null;
+    });
+    
+    // Mark Present
+    document.querySelectorAll('.mark-present-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('Mark present button clicked!');
             
             const rollNumber = this.dataset.roll;
             const date = this.dataset.date;
-            const originalText = this.innerHTML;
-            const btnElement = this;
-            
-            console.log('Roll:', rollNumber, 'Date:', date);
             
             if (!rollNumber || !date) {
-                console.error('Missing roll or date');
                 showToast('Error', 'Missing required information.', 'error');
                 return;
             }
             
-            btnElement.disabled = true;
-            btnElement.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Marking...';
+            // Store action details
+            pendingAction = {
+                action: 'present',
+                rollNumber: rollNumber,
+                date: date,
+                btnElement: this,
+                originalText: this.innerHTML
+            };
             
-            const url = '{{ route("manual-attendance.mark-present") }}';
-            console.log('Fetching URL:', url);
+            // Set default time to current time
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            punchTimeInput.value = `${hours}:${minutes}`;
             
-            fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({
-                    roll_number: rollNumber,
-                    date: date
-                })
-            })
-            .then(response => {
-                console.log('Response status:', response.status);
-                console.log('Response headers:', response.headers);
-                if (!response.ok) {
-                    return response.json().then(err => {
-                        console.error('Error response:', err);
-                        throw new Error(err.message || 'Server error: ' + response.status);
-                    }).catch(e => {
-                        console.error('Failed to parse error response:', e);
-                        throw new Error('Server error: ' + response.status);
-                    });
-                }
-                return response.json().then(data => {
-                    console.log('Success response:', data);
-                    return data;
-                });
-            })
-            .then(data => {
-                console.log('Processing data:', data);
-                if (data.success) {
-                    const whatsappMsg = data.whatsapp_sent ? ' WhatsApp sent.' : (data.whatsapp_sent === false ? ' WhatsApp not sent (check phone number).' : '');
-                    showToast('Success', data.message + whatsappMsg);
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
-                } else {
-                    showToast('Error', data.message || 'Failed to mark student as present.', 'error');
-                    btnElement.disabled = false;
-                    btnElement.innerHTML = originalText;
-                }
-            })
-            .catch(error => {
-                console.error('Error marking present:', error);
-                console.error('Error stack:', error.stack);
-                showToast('Error', error.message || 'Failed to mark student as present. Please try again.', 'error');
-                btnElement.disabled = false;
-                btnElement.innerHTML = originalText;
-            });
+            // Show modal
+            timeInputModal.show();
         });
     });
     
     // Mark Out
     document.querySelectorAll('.mark-out-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
             const rollNumber = this.dataset.roll;
             const date = this.dataset.date;
-            const originalText = this.innerHTML;
             
-            if (!confirm('Mark this student as OUT?')) {
+            if (!rollNumber || !date) {
+                showToast('Error', 'Missing required information.', 'error');
                 return;
             }
             
-            this.disabled = true;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Marking...';
+            // Store action details
+            pendingAction = {
+                action: 'out',
+                rollNumber: rollNumber,
+                date: date,
+                btnElement: this,
+                originalText: this.innerHTML
+            };
             
-            fetch('{{ route("manual-attendance.mark-out") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify({
-                    roll_number: rollNumber,
-                    date: date
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showToast('Success', data.message);
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
-                } else {
-                    showToast('Error', data.message, 'error');
-                    this.disabled = false;
-                    this.innerHTML = originalText;
-                }
-            })
-            .catch(error => {
-                showToast('Error', 'Failed to mark student as OUT. Please try again.', 'error');
-                this.disabled = false;
-                this.innerHTML = originalText;
-            });
+            // Set default time to current time
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            punchTimeInput.value = `${hours}:${minutes}`;
+            
+            // Show modal
+            timeInputModal.show();
         });
     });
 });

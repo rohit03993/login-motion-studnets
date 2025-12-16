@@ -109,13 +109,14 @@ class ManualAttendanceController extends Controller
         $request->validate([
             'roll_number' => 'required|string',
             'date' => 'required|date',
-            'time' => 'nullable|date_format:H:i',
+            'time' => 'required|date_format:H:i',
         ]);
         
         $rollNumber = $request->input('roll_number');
         $date = $request->input('date');
-        // Default to IST time for manual marks
-        $time = $request->input('time', Carbon::now('Asia/Kolkata')->format('H:i:s'));
+        // Get time from input (HH:MM format) and convert to HH:MM:SS
+        $timeInput = $request->input('time');
+        $time = $timeInput . ':00'; // Add seconds to match database format
         
         // Check if student already has IN mark for this date
         if ($this->hasInMark($rollNumber, $date)) {
@@ -223,13 +224,14 @@ class ManualAttendanceController extends Controller
         $request->validate([
             'roll_number' => 'required|string',
             'date' => 'required|date',
-            'time' => 'nullable|date_format:H:i',
+            'time' => 'required|date_format:H:i',
         ]);
         
         $rollNumber = $request->input('roll_number');
         $date = $request->input('date');
-        // Default to IST time for manual marks
-        $time = $request->input('time', Carbon::now('Asia/Kolkata')->format('H:i:s'));
+        // Get time from input (HH:MM format) and convert to HH:MM:SS
+        $timeInput = $request->input('time');
+        $time = $timeInput . ':00'; // Add seconds to match database format
         
         // Check if student has IN mark for this date
         if (!$this->hasInMark($rollNumber, $date)) {

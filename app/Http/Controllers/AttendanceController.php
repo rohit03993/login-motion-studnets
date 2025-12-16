@@ -53,34 +53,34 @@ class AttendanceController extends Controller
                     'in' => 0,
                     'out' => 0,
                 ],
+                'durationTotals' => [
+                    'students' => ['hours' => 0, 'minutes' => 0],
+                    'employees' => ['hours' => 0, 'minutes' => 0],
+                ],
                 'setup_required' => true,
             ]);
         }
         
         $roll = $request->query('roll');
         $name = $request->query('name');
-        $dateFrom = $request->query('date_from');
-        $dateTo = $request->query('date_to');
-        
-        // Enforce minimum attendance date (2025-12-15)
-        $minDate = self::MIN_ATTENDANCE_DATE;
-        if ($dateFrom && $dateFrom < $minDate) {
-            $dateFrom = $minDate;
-        }
-        if (!$dateFrom) {
-            $dateFrom = $minDate;
-        }
-        
-        // Default to today's date if no end date is provided
         $today = Carbon::today()->format('Y-m-d');
-        if (!$dateTo) {
-            $dateTo = $today;
+        $date = $request->query('date');
+        
+        // Single-date filter: default today, clamp to today (no future) and min date
+        if (!$date) {
+            $date = $today;
+        }
+        if ($date > $today) {
+            $date = $today;
+        }
+        $minDate = self::MIN_ATTENDANCE_DATE;
+        if ($date < $minDate) {
+            $date = $minDate;
         }
         
-        // Ensure date range doesn't go before minimum date
-        if ($dateTo < $minDate) {
-            $dateTo = $minDate;
-        }
+        // Use single date for from/to
+        $dateFrom = $date;
+        $dateTo = $date;
         
         // Enforce maximum date range of 30 days for performance
         if ($dateFrom && $dateTo) {
@@ -398,6 +398,7 @@ class AttendanceController extends Controller
         $totalPunches = 0;
         $inCount = 0;
         $outCount = 0;
+        $durationByRoll = [];
         
         // Get all unique students in the filtered results
         $allStudentRolls = $groupedRows->keys()->toArray();
@@ -410,7 +411,8 @@ class AttendanceController extends Controller
             // Compute IN/OUT pairs using the same logic (NO CACHE - real-time data)
             [$daily, $raw] = $this->computeInOut($mergedPunches);
             
-            // Count accepted punches from pairs
+            // Count accepted punches from pairs and sum duration for this roll
+            $rollSeconds = 0;
             foreach ($daily as $dayData) {
                 foreach ($dayData['pairs'] as $pair) {
                     if ($pair['in']) {
@@ -421,9 +423,24 @@ class AttendanceController extends Controller
                         $outCount++;
                         $totalPunches++;
                     }
+
+                    if ($pair['in'] && $pair['out']) {
+                        $inTime = Carbon::parse($dayData['date'] . ' ' . $pair['in']);
+                        $outTime = Carbon::parse($dayData['date'] . ' ' . $pair['out']);
+                        $rollSeconds += $inTime->diffInSeconds($outTime);
+                    }
                 }
             }
+
+            $durationByRoll[$rollNumber] = [
+                'total_seconds' => $rollSeconds,
+                'hours' => (int) floor($rollSeconds / 3600),
+                'minutes' => (int) floor(($rollSeconds % 3600) / 60),
+            ];
         }
+
+        // Calculate total duration for students and employees
+        $durationTotals = $this->calculateTotalDurations($dateFrom, $dateTo, $roll, $name);
 
         return view('attendance.index', [
             'rows' => $rows,
@@ -432,6 +449,7 @@ class AttendanceController extends Controller
             'filters' => [
                 'roll' => $roll,
                 'name' => $name,
+                'date' => $date,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
             ],
@@ -440,6 +458,8 @@ class AttendanceController extends Controller
                 'in' => $inCount,
                 'out' => $outCount,
             ],
+            'durationTotals' => $durationTotals,
+            'durationByRoll' => $durationByRoll,
         ]);
     }
 
@@ -486,6 +506,21 @@ class AttendanceController extends Controller
         $mergedPunches = $this->getUnifiedPunches($roll, $dateFrom, $dateTo);
 
         [$daily, $raw] = $this->computeInOut($mergedPunches);
+        
+        // Calculate total duration for this student
+        $totalDurationSeconds = 0;
+        foreach ($daily as $dayData) {
+            foreach ($dayData['pairs'] as $pair) {
+                if ($pair['in'] && $pair['out']) {
+                    $inTime = Carbon::parse($dayData['date'] . ' ' . $pair['in']);
+                    $outTime = Carbon::parse($dayData['date'] . ' ' . $pair['out']);
+                    $duration = $inTime->diffInSeconds($outTime);
+                    $totalDurationSeconds += $duration;
+                }
+            }
+        }
+        $totalDurationHours = floor($totalDurationSeconds / 3600);
+        $totalDurationMinutes = floor(($totalDurationSeconds % 3600) / 60);
 
         // Create a map of notes by date+time for quick lookup
         $notesMap = [];
@@ -602,6 +637,10 @@ class AttendanceController extends Controller
             'filters' => [
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
+            ],
+            'totalDuration' => [
+                'hours' => $totalDurationHours,
+                'minutes' => $totalDurationMinutes,
             ],
         ]);
     }
@@ -1113,6 +1152,148 @@ class AttendanceController extends Controller
             'current_total' => $currentTotal,
             'timestamp' => time(),
         ]);
+    }
+
+    /**
+     * Calculate total duration for students and employees separately
+     * Returns total time in seconds for each category
+     */
+    private function calculateTotalDurations(?string $dateFrom, ?string $dateTo, ?string $roll = null, ?string $name = null): array
+    {
+        $minDate = self::MIN_ATTENDANCE_DATE;
+        
+        // Enforce minimum date
+        if ($dateFrom && $dateFrom < $minDate) {
+            $dateFrom = $minDate;
+        }
+        if (!$dateFrom) {
+            $dateFrom = $minDate;
+        }
+        
+        // Get all unique employee IDs in the filtered range
+        $machineIds = DB::table('punch_logs')
+            ->selectRaw('DISTINCT CAST(employee_id AS CHAR) as roll_number')
+            ->where('punch_date', '>=', $minDate);
+        
+        if ($dateFrom && $dateFrom > $minDate) {
+            $machineIds->where('punch_date', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $machineIds->where('punch_date', '<=', $dateTo);
+        }
+        
+        $manualIds = null;
+        if ($this->manualTableExists()) {
+            $manualIds = DB::table('manual_attendances')
+                ->selectRaw('DISTINCT CAST(roll_number AS CHAR) as roll_number')
+                ->where('punch_date', '>=', $minDate);
+            
+            if ($dateFrom && $dateFrom > $minDate) {
+                $manualIds->where('punch_date', '>=', $dateFrom);
+            }
+            if ($dateTo) {
+                $manualIds->where('punch_date', '<=', $dateTo);
+            }
+        }
+        
+        $idsQuery = $manualIds ? $machineIds->union($manualIds) : $machineIds;
+        $allRolls = collect(DB::select($idsQuery->toSql(), $idsQuery->getBindings()))
+            ->pluck('roll_number')
+            ->unique()
+            ->toArray();
+        
+        // Apply filters if provided
+        if ($roll) {
+            $allRolls = array_filter($allRolls, function($r) use ($roll) {
+                return strpos((string)$r, (string)$roll) !== false;
+            });
+        }
+        
+        // Get student roll numbers (those with class_course)
+        $studentRolls = DB::table('students')
+            ->whereNotNull('class_course')
+            ->where('class_course', '!=', '')
+            ->pluck('roll_number')
+            ->map(function($r) { return (string)$r; })
+            ->toArray();
+        
+        // Separate students and employees
+        $students = [];
+        $employees = [];
+        
+        foreach ($allRolls as $rollNumber) {
+            $rollStr = (string) $rollNumber;
+            if (in_array($rollStr, $studentRolls)) {
+                $students[] = $rollStr;
+            } else {
+                $employees[] = $rollStr;
+            }
+        }
+        
+        // Apply name filter if provided
+        if ($name) {
+            $filteredStudents = DB::table('students')
+                ->where('name', 'like', "%{$name}%")
+                ->whereIn('roll_number', $students)
+                ->pluck('roll_number')
+                ->map(function($r) { return (string)$r; })
+                ->toArray();
+            $students = array_intersect($students, $filteredStudents);
+            
+            // For employees, check if name matches roll number
+            $employees = array_filter($employees, function($r) use ($name) {
+                return strpos($r, $name) !== false;
+            });
+        }
+        
+        // Calculate total duration for students
+        $studentTotalSeconds = 0;
+        foreach ($students as $rollNumber) {
+            $mergedPunches = $this->getUnifiedPunches($rollNumber, $dateFrom, $dateTo);
+            [$daily, $raw] = $this->computeInOut($mergedPunches);
+            
+            foreach ($daily as $dayData) {
+                foreach ($dayData['pairs'] as $pair) {
+                    if ($pair['in'] && $pair['out']) {
+                        $inTime = Carbon::parse($dayData['date'] . ' ' . $pair['in']);
+                        $outTime = Carbon::parse($dayData['date'] . ' ' . $pair['out']);
+                        $duration = $inTime->diffInSeconds($outTime);
+                        $studentTotalSeconds += $duration;
+                    }
+                }
+            }
+        }
+        
+        // Calculate total duration for employees
+        $employeeTotalSeconds = 0;
+        foreach ($employees as $rollNumber) {
+            $mergedPunches = $this->getUnifiedPunches($rollNumber, $dateFrom, $dateTo);
+            [$daily, $raw] = $this->computeInOut($mergedPunches);
+            
+            foreach ($daily as $dayData) {
+                foreach ($dayData['pairs'] as $pair) {
+                    if ($pair['in'] && $pair['out']) {
+                        $inTime = Carbon::parse($dayData['date'] . ' ' . $pair['in']);
+                        $outTime = Carbon::parse($dayData['date'] . ' ' . $pair['out']);
+                        $duration = $inTime->diffInSeconds($outTime);
+                        $employeeTotalSeconds += $duration;
+                    }
+                }
+            }
+        }
+        
+        return [
+            'students' => [
+                'total_seconds' => $studentTotalSeconds,
+                'hours' => floor($studentTotalSeconds / 3600),
+                'minutes' => floor(($studentTotalSeconds % 3600) / 60),
+            ],
+            'employees' => [
+                'total_seconds' => $employeeTotalSeconds,
+                'hours' => floor($employeeTotalSeconds / 3600),
+                'minutes' => floor(($employeeTotalSeconds % 3600) / 60),
+            ],
+        ];
     }
 
 }

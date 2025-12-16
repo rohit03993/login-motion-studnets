@@ -284,9 +284,25 @@
                     <a href="{{ url('/attendance') }}" class="nav-link {{ request()->is('attendance*') && !request()->is('students*') ? 'active' : '' }}">
                         <i class="bi bi-list-ul"></i> Live Attendance
                     </a>
-                    <a href="{{ route('students.index') }}" class="nav-link {{ request()->is('students') && !request()->is('students/*') ? 'active' : '' }}">
-                        <i class="bi bi-people"></i> Students
-                    </a>
+                    <div class="dropdown">
+                        <a href="#" class="nav-link dropdown-toggle {{ request()->is('students*') ? 'active' : '' }}" data-bs-toggle="dropdown">
+                            <i class="bi bi-people"></i> Students
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ route('students.index') }}">
+                                <i class="bi bi-list-ul"></i> All Students
+                            </a></li>
+                            @if(auth()->user()->isSuperAdmin())
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ route('courses.index') }}">
+                                    <i class="bi bi-book"></i> Manage Classes
+                                </a></li>
+                                <li><a class="dropdown-item" href="{{ route('batches.index') }}">
+                                    <i class="bi bi-diagram-3"></i> Manage Batches
+                                </a></li>
+                            @endif
+                        </ul>
+                    </div>
                     <a href="{{ route('manual-attendance.index') }}" class="nav-link {{ request()->is('manual-attendance*') ? 'active' : '' }}">
                         <i class="bi bi-pencil-square"></i> Manual Attendance
                     </a>

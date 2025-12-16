@@ -20,21 +20,17 @@
 <div class="brand-card mb-3">
     <div class="section-title mb-3"><i class="bi bi-funnel"></i> Filters</div>
     <form class="row gy-2 gx-2 align-items-end" method="get" action="{{ url('/attendance') }}">
-        <div class="col-12 col-md-3">
+        <div class="col-12 col-md-4">
             <label class="form-label"><i class="bi bi-person-badge"></i> Roll / Employee ID</label>
             <input type="text" name="roll" value="{{ $filters['roll'] ?? '' }}" class="form-control" placeholder="e.g. 25175000xxx">
         </div>
-        <div class="col-12 col-md-3">
+        <div class="col-12 col-md-4">
             <label class="form-label"><i class="bi bi-person"></i> Name (partial)</label>
             <input type="text" name="name" value="{{ $filters['name'] ?? '' }}" class="form-control" placeholder="Student name">
         </div>
-        <div class="col-6 col-md-2">
-            <label class="form-label"><i class="bi bi-calendar-event"></i> From Date</label>
-            <input type="date" name="date_from" value="{{ $filters['date_from'] ?? date('Y-m-d') }}" class="form-control">
-        </div>
-        <div class="col-6 col-md-2">
-            <label class="form-label"><i class="bi bi-calendar-event"></i> To Date</label>
-            <input type="date" name="date_to" value="{{ $filters['date_to'] ?? date('Y-m-d') }}" class="form-control">
+        <div class="col-12 col-md-3">
+            <label class="form-label"><i class="bi bi-calendar-event"></i> Date</label>
+            <input type="date" name="date" value="{{ $filters['date'] ?? date('Y-m-d') }}" class="form-control" max="{{ date('Y-m-d') }}">
         </div>
         <div class="col-auto">
             <button class="btn btn-primary"><i class="bi bi-search"></i> Filter</button>
@@ -119,9 +115,17 @@
                                             <span class="text-muted ms-2">• {{ $firstPunch->class_course }}</span>
                                         @endif
                                     </div>
-                                    <div>
-                                        <span class="badge bg-primary">{{ $punchCount }} {{ $punchCount === 1 ? 'punch' : 'punches' }}</span>
-                                    </div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="badge bg-primary">{{ $punchCount }} {{ $punchCount === 1 ? 'punch' : 'punches' }}</span>
+                    @if(isset($durationByRoll[$rollNumber]))
+                        @php
+                            $d = $durationByRoll[$rollNumber];
+                        @endphp
+                        <span class="badge bg-info text-dark" title="Total duration across all IN–OUT pairs in range">
+                            {{ $d['hours'] }}h {{ $d['minutes'] }}m
+                        </span>
+                    @endif
+                </div>
                                 </div>
                             </button>
                         </h2>
@@ -294,6 +298,14 @@
                                 </a>
                                 @if($r->class_course)
                                     <small class="text-muted">{{ $r->class_course }}</small>
+                                @endif
+                            </div>
+                            <div class="col-12 col-md-2">
+                                @if(isset($durationByRoll[$r->employee_id]))
+                                    @php $d = $durationByRoll[$r->employee_id]; @endphp
+                                    <span class="badge bg-info text-dark" title="Total duration across all IN–OUT pairs in range">
+                                        {{ $d['hours'] }}h {{ $d['minutes'] }}m
+                                    </span>
                                 @endif
                             </div>
                             <div class="col-12 col-md-2">

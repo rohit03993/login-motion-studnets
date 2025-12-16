@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Student;
+use App\Models\Course;
+use App\Models\Batch;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -155,6 +158,76 @@ class StudentsListController extends Controller
         $students = $query->orderBy('roll_number')->paginate(50);
 
         return view('students.list', compact('students', 'search', 'batch', 'batches', 'hasNoBatch'));
+    }
+
+    /**
+     * Bulk assign class to selected students
+     */
+    public function bulkAssignClass(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'student_rolls' => 'required|array|min:1',
+            'student_rolls.*' => 'required|string',
+            'class_course' => 'required|string|max:255',
+        ]);
+
+        $course = Course::where('name', $validated['class_course'])->first();
+        if (!$course) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected class does not exist.',
+            ], 400);
+        }
+
+        $updated = 0;
+        foreach ($validated['student_rolls'] as $rollNumber) {
+            $student = Student::firstOrNew(['roll_number' => $rollNumber]);
+            $student->roll_number = $rollNumber;
+            $student->class_course = $validated['class_course'];
+            $student->save();
+            $updated++;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully assigned class to {$updated} student(s).",
+            'updated_count' => $updated,
+        ]);
+    }
+
+    /**
+     * Bulk assign batch to selected students
+     */
+    public function bulkAssignBatch(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'student_rolls' => 'required|array|min:1',
+            'student_rolls.*' => 'required|string',
+            'batch' => 'required|string|max:255',
+        ]);
+
+        $batch = Batch::where('name', $validated['batch'])->first();
+        if (!$batch) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected batch does not exist.',
+            ], 400);
+        }
+
+        $updated = 0;
+        foreach ($validated['student_rolls'] as $rollNumber) {
+            $student = Student::firstOrNew(['roll_number' => $rollNumber]);
+            $student->roll_number = $rollNumber;
+            $student->batch = $validated['batch'];
+            $student->save();
+            $updated++;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully assigned batch to {$updated} student(s).",
+            'updated_count' => $updated,
+        ]);
     }
 
     private function manualTableExists(): bool
