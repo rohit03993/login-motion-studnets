@@ -88,7 +88,14 @@
                                             </div>
                                         </td>
                                         <td>
-                                            {{ $item['out_time'] ?? '-' }}
+                                            <div>
+                                                {{ $item['out_time'] ?? '-' }}
+                                                @if(($item['out_time'] ?? null) && !empty($item['is_manual_out']))
+                                                    <span class="badge bg-warning text-dark ms-1" title="Manually marked OUT">
+                                                        <i class="bi bi-pencil"></i> Manual
+                                                    </span>
+                                                @endif
+                                            </div>
                                         </td>
                                         <td>
                                             <div class="d-flex flex-column gap-1">
@@ -112,7 +119,8 @@
                                             @if(!$item['has_out'])
                                                 <button class="btn btn-sm btn-outline-danger mark-out-btn" 
                                                         data-roll="{{ $item['student']->roll_number }}"
-                                                        data-date="{{ $date }}">
+                                                        data-date="{{ $date }}"
+                                                        data-in-time="{{ $item['in_time'] ?? '' }}">
                                                     <i class="bi bi-box-arrow-right"></i> Mark Out
                                                 </button>
                                             @else
@@ -316,6 +324,15 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Please enter a time');
             return;
         }
+
+        // Client-side guard: OUT time must be >= IN time (if known)
+        if (pendingAction && pendingAction.action === 'out' && pendingAction.inTime) {
+            const inHm = pendingAction.inTime.slice(0,5);
+            if (time < inHm) {
+                showToast('Error', `OUT time cannot be before IN time (${inHm}).`, 'error');
+                return;
+            }
+        }
         
         if (pendingAction) {
             timeInputModal.hide();
@@ -386,6 +403,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const rollNumber = this.dataset.roll;
             const date = this.dataset.date;
+            const inTime = (this.dataset.inTime || '').trim();
             
             if (!rollNumber || !date) {
                 showToast('Error', 'Missing required information.', 'error');
@@ -397,15 +415,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 action: 'out',
                 rollNumber: rollNumber,
                 date: date,
-                btnElement: this,
-                originalText: this.innerHTML
+                    inTime: inTime,
+                    btnElement: this,
+                    originalText: this.innerHTML
             };
             
             // Set default time to current time
             const now = new Date();
             const hours = String(now.getHours()).padStart(2, '0');
             const minutes = String(now.getMinutes()).padStart(2, '0');
-            punchTimeInput.value = `${hours}:${minutes}`;
+            const currentHm = `${hours}:${minutes}`;
+            
+            // Enforce minimum as IN time if present
+            if (inTime) {
+                const inHm = inTime.slice(0,5);
+                punchTimeInput.min = inHm;
+                punchTimeInput.value = currentHm < inHm ? inHm : currentHm;
+            } else {
+                punchTimeInput.min = '';
+                punchTimeInput.value = currentHm;
+            }
             
             // Show modal
             timeInputModal.show();

@@ -100,8 +100,8 @@
                     $hasMultiple = $punchCount > 1;
                 @endphp
                 
-                @if($hasMultiple)
-                    <!-- Multiple entries - show in accordion with IN/OUT pairs -->
+                @if(true)
+                    <!-- Unified layout for all students (single or multiple punches) -->
                     <div class="accordion-item">
                         <h2 class="accordion-header" id="heading{{ $accordionId }}">
                             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ $accordionId }}" aria-expanded="false" aria-controls="collapse{{ $accordionId }}">
@@ -169,6 +169,11 @@
                                                                     @if($pair['in'])
                                                                         <div>
                                                                             <span class="badge bg-success" style="font-size: 0.9rem;"><i class="bi bi-box-arrow-in-right"></i> {{ $pair['in'] }}</span>
+                                                                            @if(!empty($pair['is_manual_in']))
+                                                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;" title="Manually marked IN">
+                                                                                    <i class="bi bi-pencil"></i> Manual
+                                                                                </span>
+                                                                            @endif
                                                                         </div>
                                                                         @if(isset($pair['whatsapp_in']))
                                                                             @php $waIn = $pair['whatsapp_in']; @endphp
@@ -206,6 +211,11 @@
                                                                     @if($pair['out'])
                                                                         <div>
                                                                             <span class="badge bg-danger" style="font-size: 0.9rem;"><i class="bi bi-box-arrow-right"></i> {{ $pair['out'] }}</span>
+                                                                            @if(!empty($pair['is_manual_out']))
+                                                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;" title="Manually marked OUT">
+                                                                                    <i class="bi bi-pencil"></i> Manual
+                                                                                </span>
+                                                                            @endif
                                                                             @if(isset($pair['is_auto_out']) && $pair['is_auto_out'])
                                                                                 <small class="d-block mt-1">
                                                                                     <span class="badge bg-warning text-dark" style="font-size: 0.7rem;" title="Automatically marked OUT at 7 PM">
@@ -286,68 +296,6 @@
                                         <span class="text-muted">No attendance data available</span>
                                     </div>
                                 @endif
-                            </div>
-                        </div>
-                    </div>
-                @else
-                    <!-- Single entry - show directly without accordion -->
-                    @php $r = $firstPunch; @endphp
-                    <div class="punch-row-single mb-2 p-3 border rounded">
-                        <div class="row align-items-center">
-                            <div class="col-12 col-md-2">
-                                <a href="{{ route('students.show', $r->employee_id) }}" class="text-decoration-none fw-bold">
-                                    {{ $r->employee_id }}
-                                </a>
-                            </div>
-                            <div class="col-12 col-md-3">
-                                <a href="{{ route('students.show', $r->employee_id) }}" class="text-decoration-none">
-                                    <div class="fw-medium">{{ $r->student_name ?? '—' }}</div>
-                                </a>
-                                @if($r->class_course)
-                                    <small class="text-muted">{{ $r->class_course }}</small>
-                                @endif
-                            </div>
-                            <div class="col-12 col-md-2">
-                                @if(isset($durationByRoll[$r->employee_id]))
-                                    @php $d = $durationByRoll[$r->employee_id]; @endphp
-                                    <span class="badge bg-info text-dark" title="Total duration across all IN–OUT pairs in range">
-                                        {{ $d['hours'] }}h {{ $d['minutes'] }}m
-                                    </span>
-                                @endif
-                            </div>
-                            <div class="col-12 col-md-2">
-                                <div>{{ \Carbon\Carbon::parse($r->punch_date)->format('M d, Y') }}</div>
-                                <small class="text-muted">{{ \Carbon\Carbon::parse($r->punch_date)->format('D') }}</small>
-                            </div>
-                            <div class="col-12 col-md-2">
-                                <div class="fw-medium">{{ $r->punch_time }}</div>
-                                @php
-                                    $state = $r->computed_state ?? 'IN';
-                                    $isIn = $state === 'IN';
-                                @endphp
-                                <span class="badge {{ $isIn ? 'bg-success' : 'bg-danger' }} text-white mt-1">
-                                    <i class="bi bi-{{ $isIn ? 'box-arrow-in-right' : 'box-arrow-right' }}"></i> {{ $state }}
-                                </span>
-                            </div>
-                            <div class="col-12 col-md-2">
-                                @if($r->whatsapp_status_display === 'success')
-                                    <span class="badge bg-success">
-                                        <i class="bi bi-check-circle"></i> Sent
-                                    </span>
-                                @elseif($r->whatsapp_status_display === 'failed')
-                                    <span class="badge bg-danger" title="{{ $r->whatsapp_error ?? 'Failed' }}">
-                                        <i class="bi bi-x-circle"></i> Failed
-                                    </span>
-                                @else
-                                    <span class="badge bg-secondary">
-                                        <i class="bi bi-hourglass-split"></i> Pending
-                                    </span>
-                                @endif
-                            </div>
-                            <div class="col-12 col-md-1 text-end">
-                                <a href="{{ route('students.show', $r->employee_id) }}" class="btn btn-outline-primary btn-sm">
-                                    <i class="bi bi-person"></i> Profile
-                                </a>
                             </div>
                         </div>
                     </div>

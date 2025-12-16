@@ -874,12 +874,14 @@ class AttendanceController extends Controller
                 ->fromSub($union, 'u')
                 ->orderBy('punch_date')
                 ->orderBy('punch_time')
+                ->orderByDesc('is_manual') // prefer manual when times match
                 ->get();
         }
 
         return $machine
             ->orderBy('punch_date')
             ->orderBy('punch_time')
+            ->orderByDesc('is_manual') // prefer manual when times match
             ->get();
     }
 
@@ -912,10 +914,16 @@ class AttendanceController extends Controller
         }
 
         foreach ($byDate as $date => $list) {
-            // sort by time ascending
-            usort($list, function ($a, $b) {
-                return strcmp($a->punch_time, $b->punch_time);
-            });
+                // sort by time ascending; if same time, prioritize manual punches
+                usort($list, function ($a, $b) {
+                    $cmp = strcmp($a->punch_time, $b->punch_time);
+                    if ($cmp === 0) {
+                        return ($a->is_manual ?? false) === ($b->is_manual ?? false)
+                            ? 0
+                            : (($a->is_manual ?? false) ? -1 : 1);
+                    }
+                    return $cmp;
+                });
 
             $acceptedCount = 0;
             $lastAcceptedTime = null;
@@ -933,7 +941,12 @@ class AttendanceController extends Controller
                 // First punch is always IN
                 if ($lastAcceptedTime === null) {
                     $acceptedCount = 1;
-                    $entries[] = ['in' => $p->punch_time, 'out' => null];
+                    $entries[] = [
+                        'in' => $p->punch_time,
+                        'out' => null,
+                        'is_manual_in' => (bool) ($p->is_manual ?? false),
+                        'is_manual_out' => null,
+                    ];
                     $currentPairIndex = count($entries) - 1;
                     $lastAcceptedTime = $current;
                     continue;
@@ -961,12 +974,18 @@ class AttendanceController extends Controller
 
                 if ($state === 'IN') {
                     // New IN punch - start a new pair
-                    $entries[] = ['in' => $p->punch_time, 'out' => null];
+                    $entries[] = [
+                        'in' => $p->punch_time,
+                        'out' => null,
+                        'is_manual_in' => (bool) ($p->is_manual ?? false),
+                        'is_manual_out' => null,
+                    ];
                     $currentPairIndex = count($entries) - 1;
                 } else {
                     // OUT punch - close the current pair
                     if ($currentPairIndex >= 0 && isset($entries[$currentPairIndex])) {
                         $entries[$currentPairIndex]['out'] = $p->punch_time;
+                        $entries[$currentPairIndex]['is_manual_out'] = (bool) ($p->is_manual ?? false);
                     }
                 }
 
@@ -987,6 +1006,7 @@ class AttendanceController extends Controller
                     // 2. Today and it's past 7 PM
                     if ($isPastDate || ($isToday && $isPast7PM)) {
                         $entry['out'] = '19:00:00';
+                        $entry['is_manual_out'] = $entry['is_manual_out'] ?? false;
                         $entry['is_auto_out'] = true; // Flag to indicate auto-generated OUT
                     }
                 }

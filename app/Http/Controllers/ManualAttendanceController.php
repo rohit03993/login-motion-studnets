@@ -9,11 +9,13 @@ use App\Services\AisensyService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ManualAttendanceController extends Controller
 {
     // Minimum attendance date - only show attendance from this date onwards
     private const MIN_ATTENDANCE_DATE = '2025-12-15';
+    private ?bool $punchLogsHasIsManual = null;
     
     /**
      * Show manual attendance marking page
@@ -69,6 +71,7 @@ class ManualAttendanceController extends Controller
                     $isManual = $this->isManualIn($student->roll_number, $date);
                     $hasOut = $this->hasOutMark($student->roll_number, $date);
                     $outTime = $hasOut ? $this->getOutTime($student->roll_number, $date) : null;
+                    $isManualOut = $hasOut ? $this->isManualOut($student->roll_number, $date) : false;
                     
                     // Get WhatsApp status for IN
                     $whatsappIn = $this->getWhatsAppStatus($student->roll_number, $date, $inTime, 'IN');
@@ -79,6 +82,7 @@ class ManualAttendanceController extends Controller
                         'in_time' => $inTime,
                         'out_time' => $outTime,
                         'is_manual' => $isManual,
+                        'is_manual_out' => $isManualOut,
                         'has_out' => $hasOut,
                         'whatsapp_in' => $whatsappIn,
                         'whatsapp_out' => $whatsappOut,
@@ -117,6 +121,19 @@ class ManualAttendanceController extends Controller
         // Get time from input (HH:MM format) and convert to HH:MM:SS
         $timeInput = $request->input('time');
         $time = $timeInput . ':00'; // Add seconds to match database format
+
+        // Ensure OUT time is not before IN time
+        $firstIn = $this->getInTime($rollNumber, $date);
+        if ($firstIn) {
+            $inTs = Carbon::parse($date . ' ' . $firstIn);
+            $outTs = Carbon::parse($date . ' ' . $time);
+            if ($outTs->lt($inTs)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'OUT time cannot be earlier than IN time (' . $firstIn . ').',
+                ], 400);
+            }
+        }
         
         // Check if student already has IN mark for this date
         if ($this->hasInMark($rollNumber, $date)) {
@@ -312,8 +329,8 @@ class ManualAttendanceController extends Controller
         return response()->json([
             'success' => true,
             'message' => $message,
-            'whatsapp_sent' => $whatsappSent,
-            'whatsapp_error' => $whatsappError,
+            'whatsapp_sent' => $whatsappResults['sent_count'] > 0,
+            'whatsapp_error' => $whatsappResults['error'],
         ]);
     }
     
@@ -387,6 +404,17 @@ class ManualAttendanceController extends Controller
         return ManualAttendance::where('roll_number', $rollNumber)
             ->where('punch_date', $date)
             ->where('state', 'IN')
+            ->exists();
+    }
+
+    /**
+     * Check if OUT mark is manual
+     */
+    private function isManualOut(string $rollNumber, string $date): bool
+    {
+        return ManualAttendance::where('roll_number', $rollNumber)
+            ->where('punch_date', $date)
+            ->where('state', 'OUT')
             ->exists();
     }
     
@@ -540,7 +568,7 @@ class ManualAttendanceController extends Controller
 
         $punchStateChar = $state === 'OUT' ? 'O' : 'I';
 
-        DB::table('punch_logs')->insert([
+        $payload = [
             'employee_id' => $rollNumber,
             'punch_date' => $date,
             'punch_time' => $time,
@@ -548,6 +576,24 @@ class ManualAttendanceController extends Controller
             'area_name' => 'Manual',
             'punch_state_char' => $punchStateChar,
             'verify_type_char' => 'M', // Manual
-        ]);
+        ];
+
+        // Only include is_manual if the column exists (some external DBs may not have it)
+        if ($this->punchLogsHasIsManual()) {
+            $payload['is_manual'] = 1;
+        }
+
+        DB::table('punch_logs')->insert($payload);
+    }
+
+    /**
+     * Check and cache whether punch_logs has an is_manual column.
+     */
+    private function punchLogsHasIsManual(): bool
+    {
+        if ($this->punchLogsHasIsManual === null) {
+            $this->punchLogsHasIsManual = Schema::hasColumn('punch_logs', 'is_manual');
+        }
+        return $this->punchLogsHasIsManual;
     }
 }
