@@ -10,6 +10,18 @@
             <div class="muted">Complete list of all registered students</div>
         </div>
     </div>
+    @if(session('success'))
+        <div class="alert alert-success mt-3 mb-0">
+            {{ session('success') }}
+        </div>
+    @endif
+    @if($errors->any())
+        <div class="alert alert-danger mt-3 mb-0">
+            @foreach($errors->all() as $error)
+                <div>{{ $error }}</div>
+            @endforeach
+        </div>
+    @endif
 </div>
 
 <div class="brand-card mb-3">
@@ -52,6 +64,48 @@
 
 @if(auth()->user()->isSuperAdmin())
 <div class="brand-card mb-3">
+    <form id="importForm" method="POST" action="{{ route('students.import') }}" enctype="multipart/form-data" class="row g-2 align-items-end">
+        @csrf
+        <div class="col-12 col-md-6">
+            <label class="form-label"><i class="bi bi-upload"></i> Bulk Import (CSV)</label>
+            <input type="file" name="file" id="csvFile" accept=".csv,.txt" class="form-control" required>
+            <small class="text-muted">Upload CSV, then map columns.</small>
+        </div>
+        <div class="col-12 col-md-6">
+            <div class="row g-2">
+                <div class="col-6 col-md-3">
+                    <label class="form-label small">Roll #</label>
+                    <select name="map_roll" id="map_roll" class="form-select form-select-sm" required></select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small">Name</label>
+                    <select name="map_name" id="map_name" class="form-select form-select-sm" required></select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small">Father</label>
+                    <select name="map_father" id="map_father" class="form-select form-select-sm">
+                        <option value="">(none)</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small">Phone</label>
+                    <select name="map_phone" id="map_phone" class="form-select form-select-sm">
+                        <option value="">(none)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-2 mt-2">
+            <button type="submit" class="btn btn-success w-100">
+                <i class="bi bi-cloud-arrow-up"></i> Upload
+            </button>
+        </div>
+    </form>
+</div>
+@endif
+
+@if(auth()->user()->isSuperAdmin())
+<div class="brand-card mb-3">
     <div class="d-flex flex-column flex-md-row gap-2 align-items-md-center justify-content-md-between">
         <div>
             <span id="selectedCount" class="badge bg-primary" style="display: none;">0 selected</span>
@@ -60,7 +114,6 @@
             <select id="bulkAction" class="form-select form-select-sm" style="width: auto;" disabled>
                 <option value="">Bulk Actions...</option>
                 <option value="assign-class">Assign to Class</option>
-                <option value="assign-batch">Assign to Batch</option>
             </select>
             <button id="clearSelection" class="btn btn-sm btn-outline-secondary" style="display: none;">
                 <i class="bi bi-x-circle"></i> Clear
@@ -250,6 +303,62 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // CSV header mapping
+    const fileInput = document.getElementById('csvFile');
+    const mapRoll = document.getElementById('map_roll');
+    const mapName = document.getElementById('map_name');
+    const mapFather = document.getElementById('map_father');
+    const mapPhone = document.getElementById('map_phone');
+
+    function populateMappingOptions(headers) {
+        [mapRoll, mapName, mapFather, mapPhone].forEach(sel => {
+            if (!sel) return;
+            const current = sel.value;
+            sel.innerHTML = (sel.id === 'map_father' || sel.id === 'map_phone')
+                ? '<option value=\"\">(none)</option>'
+                : '';
+            headers.forEach(h => {
+                const opt = document.createElement('option');
+                opt.value = h;
+                opt.textContent = h;
+                sel.appendChild(opt);
+            });
+            if (current) sel.value = current;
+        });
+    }
+
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split(/\\r?\\n/).filter(l => l.trim() !== '');
+                if (!lines.length) return;
+                const delims = [',',';','\\t'];
+                let bestDelim = ',';
+                let bestScore = -1;
+                delims.forEach(d => {
+                    const score = (lines[0].match(new RegExp(`\\${d}`,'g')) || []).length;
+                    if (score > bestScore) { bestScore = score; bestDelim = d; }
+                });
+                let headerLine = lines[0];
+                if (lines.length > 1) {
+                    const firstParts = headerLine.split(bestDelim).map(h => h.trim());
+                    const secondParts = lines[1].split(bestDelim).map(h => h.trim());
+                    if (firstParts.length === 1 && secondParts.length > 1) {
+                        headerLine = lines[1];
+                    }
+                }
+                let headers = headerLine.split(bestDelim).map(h => h.trim());
+                headers = headers.map((h, idx) => h !== '' ? h : `Column${idx+1}`);
+                populateMappingOptions(headers);
+            };
+            reader.readAsText(file);
+        });
+    }
+
     const selectAll = document.getElementById('selectAll');
     const checkboxes = document.querySelectorAll('.student-checkbox');
     const bulkAction = document.getElementById('bulkAction');

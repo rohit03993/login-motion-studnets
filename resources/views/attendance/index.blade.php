@@ -91,217 +91,171 @@
     </div>
     
     @if($groupedRows && $groupedRows->count() > 0)
-        <div class="accordion" id="punchAccordion">
-            @foreach ($groupedRows as $rollNumber => $studentPunches)
-                @php
-                    $firstPunch = $studentPunches->first();
-                    $punchCount = $studentPunches->count();
-                    $accordionId = 'student-' . $rollNumber;
-                    $hasMultiple = $punchCount > 1;
-                @endphp
-                
-                @if(true)
-                    <!-- Unified layout for all students (single or multiple punches) -->
-                    <div class="accordion-item">
-                        <h2 class="accordion-header" id="heading{{ $accordionId }}">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ $accordionId }}" aria-expanded="false" aria-controls="collapse{{ $accordionId }}">
-                                <div class="d-flex justify-content-between align-items-center w-100 me-3">
-                                    <div>
-                                        <a href="{{ route('students.show', $rollNumber) }}" class="text-decoration-none text-dark fw-bold" onclick="event.stopPropagation();">
-                                            {{ $firstPunch->student_name ?? '—' }}
-                                        </a>
-                                        <span class="text-muted ms-2">(Roll: {{ $rollNumber }})</span>
-                                        @if($firstPunch->class_course)
-                                            <span class="text-muted ms-2">• {{ $firstPunch->class_course }}</span>
-                                        @endif
-                                    </div>
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <span class="badge bg-primary">{{ $punchCount }} {{ $punchCount === 1 ? 'punch' : 'punches' }}</span>
-                    @if(isset($durationByRoll[$rollNumber]))
-                        @php
-                            $d = $durationByRoll[$rollNumber];
-                        @endphp
-                        <span class="badge bg-info text-dark" title="Total duration across all IN–OUT pairs in range">
-                            {{ $d['hours'] }}h {{ $d['minutes'] }}m
-                        </span>
+        @foreach ($groupedRows as $rollNumber => $studentPunches)
+            @php
+                $firstPunch = $studentPunches->first();
+                $punchCount = $studentPunches->count();
+                $dailyPairs = $studentPairs[$rollNumber] ?? [];
+                usort($dailyPairs, function($a, $b) { return strcmp($b['date'], $a['date']); });
+                $rendered = false;
+            @endphp
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        @if($firstPunch->student_name)
+                            <a href="{{ route('students.show', $rollNumber) }}" class="text-decoration-none text-dark fw-bold">
+                                {{ $firstPunch->student_name }}
+                            </a>
+                        @else
+                            <span class="fw-bold text-warning">Unmapped</span>
+                        @endif
+                        <span class="text-muted ms-2">(Roll: {{ $rollNumber }})</span>
+                        @if($firstPunch->class_course)
+                            <span class="text-muted ms-2">• {{ $firstPunch->class_course }}</span>
+                        @endif
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="badge bg-primary">{{ $punchCount }} {{ $punchCount === 1 ? 'punch' : 'punches' }}</span>
+                        @if(isset($durationByRoll[$rollNumber]))
+                            @php $d = $durationByRoll[$rollNumber]; @endphp
+                            <span class="badge bg-info text-dark" title="Total duration across all IN–OUT pairs in range">
+                                {{ $d['hours'] }}h {{ $d['minutes'] }}m
+                            </span>
+                        @endif
+                        @if(!$firstPunch->student_name)
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary create-student-btn"
+                                    data-roll="{{ $rollNumber }}">
+                                <i class="bi bi-person-plus"></i> Create student
+                            </button>
+                        @endif
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover align-middle mb-0" style="font-size: 0.95rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="font-size: 0.9rem;"><i class="bi bi-calendar"></i> Date</th>
+                                    <th style="font-size: 0.9rem;"><i class="bi bi-box-arrow-in-right text-success"></i> IN Time</th>
+                                    <th style="font-size: 0.9rem;"><i class="bi bi-box-arrow-right text-danger"></i> OUT Time</th>
+                                    <th style="font-size: 0.9rem;"><i class="bi bi-clock"></i> Duration</th>
+                                    <th style="font-size: 0.9rem;"><i class="bi bi-diagram-3"></i> Pair</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($dailyPairs as $d)
+                                    @php
+                                        $dateObj = \Carbon\Carbon::parse($d['date']);
+                                        $hasPairs = !empty($d['pairs']);
+                                    @endphp
+                                    @if($hasPairs)
+                                        @foreach ($d['pairs'] as $pairIndex => $pair)
+                                            @php $rendered = true; @endphp
+                                            <tr>
+                                                @if($pairIndex === 0)
+                                                    <td rowspan="{{ count($d['pairs']) }}" class="align-middle" style="font-size: 0.9rem;">
+                                                        <div class="fw-medium">{{ $dateObj->format('M d, Y') }}</div>
+                                                        <small class="text-muted">{{ $dateObj->format('D') }}</small>
+                                                    </td>
+                                                @endif
+                                                <td>
+                                                    @if($pair['in'])
+                                                        <div>
+                                                            <span class="badge bg-success" style="font-size: 0.9rem;"><i class="bi bi-box-arrow-in-right"></i> {{ $pair['in'] }}</span>
+                                                            @if(!empty($pair['is_manual_in']))
+                                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;" title="Manually marked IN">
+                                                                    <i class="bi bi-pencil"></i> Manual
+                                                                </span>
+                                                            @endif
+                                                        </div>
+                                                    @else
+                                                        <span class="text-muted">—</span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if($pair['out'])
+                                                        <div>
+                                                            <span class="badge bg-danger" style="font-size: 0.9rem;"><i class="bi bi-box-arrow-right"></i> {{ $pair['out'] }}</span>
+                                                            @if(!empty($pair['is_manual_out']))
+                                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;" title="Manually marked OUT">
+                                                                    <i class="bi bi-pencil"></i> Manual
+                                                                </span>
+                                                            @endif
+                                                            @if(isset($pair['is_auto_out']) && $pair['is_auto_out'])
+                                                                <small class="d-block mt-1">
+                                                                    <span class="badge bg-warning text-dark" style="font-size: 0.7rem;" title="Automatically marked OUT at 7 PM">
+                                                                        <i class="bi bi-clock"></i> Auto OUT
+                                                                    </span>
+                                                                </small>
+                                                            @endif
+                                                        </div>
+                                                    @else
+                                                        <span class="text-muted">—</span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if($pair['in'] && $pair['out'])
+                                                        @php
+                                                            $inTime = \Carbon\Carbon::parse($d['date'] . ' ' . $pair['in']);
+                                                            $outTime = \Carbon\Carbon::parse($d['date'] . ' ' . $pair['out']);
+                                                            $duration = $inTime->diff($outTime);
+                                                        @endphp
+                                                        <span class="text-muted" style="font-size: 0.9rem;">{{ $duration->format('%h:%I') }}</span>
+                                                    @else
+                                                        <span class="text-muted">—</span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-secondary" style="font-size: 0.85rem;">{{ $pairIndex + 1 }}</span>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    @else
+                                        @php $rendered = true; @endphp
+                                        <tr>
+                                            <td>
+                                                <div class="fw-medium">{{ $dateObj->format('M d, Y') }}</div>
+                                                <small class="text-muted">{{ $dateObj->format('D') }}</small>
+                                            </td>
+                                            <td colspan="4" class="text-muted">No valid attendance pairs</td>
+                                        </tr>
+                                    @endif
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if(!$rendered)
+                        <div class="table-responsive mt-2">
+                            <table class="table table-striped table-hover align-middle mb-0" style="font-size: 0.95rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th><i class="bi bi-calendar"></i> Date</th>
+                                        <th><i class="bi bi-box-arrow-in-right text-success"></i> IN Time</th>
+                                        <th><i class="bi bi-box-arrow-right text-danger"></i> OUT Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @php $raw = $studentPunches->sortByDesc('punch_date')->sortByDesc('punch_time')->values(); @endphp
+                                    @foreach($raw as $r)
+                                        <tr>
+                                            <td>{{ \Carbon\Carbon::parse($r->punch_date)->format('M d, Y') }}</td>
+                                            <td>
+                                                <span class="badge bg-success" style="font-size: 0.9rem;">
+                                                    <i class="bi bi-box-arrow-in-right"></i> {{ $r->punch_time }}
+                                                </span>
+                                            </td>
+                                            <td><span class="text-muted">—</span></td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
                     @endif
                 </div>
-                                </div>
-                            </button>
-                        </h2>
-                        <div id="collapse{{ $accordionId }}" class="accordion-collapse collapse" aria-labelledby="heading{{ $accordionId }}" data-bs-parent="#punchAccordion">
-                            <div class="accordion-body">
-                                @php
-                                    $dailyPairs = $studentPairs[$rollNumber] ?? [];
-                                    // Sort by date descending (latest first)
-                                    usort($dailyPairs, function($a, $b) {
-                                        return strcmp($b['date'], $a['date']);
-                                    });
-                                @endphp
-                                @if(count($dailyPairs) > 0)
-                                    <div class="table-responsive">
-                                    <table class="table table-striped table-hover align-middle mb-0" style="font-size: 0.95rem;">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th style="font-size: 0.9rem;"><i class="bi bi-calendar"></i> Date</th>
-                                                <th style="font-size: 0.9rem;"><i class="bi bi-box-arrow-in-right text-success"></i> IN Time</th>
-                                                <th style="font-size: 0.9rem;"><i class="bi bi-box-arrow-right text-danger"></i> OUT Time</th>
-                                                <th style="font-size: 0.9rem;"><i class="bi bi-clock"></i> Duration</th>
-                                                <th style="font-size: 0.9rem;"><i class="bi bi-diagram-3"></i> Pair</th>
-                                            </tr>
-                                        </thead>
-                                            <tbody>
-                                                @foreach ($dailyPairs as $d)
-                                                    @php
-                                                        $dateObj = \Carbon\Carbon::parse($d['date']);
-                                                        $hasPairs = !empty($d['pairs']);
-                                                    @endphp
-                                                    @if($hasPairs)
-                                                        @foreach ($d['pairs'] as $pairIndex => $pair)
-                                                            <tr>
-                                                                @if($pairIndex === 0)
-                                                                    <td rowspan="{{ count($d['pairs']) }}" class="align-middle" style="font-size: 0.9rem;">
-                                                                        <div class="fw-medium">{{ $dateObj->format('M d, Y') }}</div>
-                                                                        <small class="text-muted">{{ $dateObj->format('D') }}</small>
-                                                                    </td>
-                                                                @endif
-                                                                <td>
-                                                                    @if($pair['in'])
-                                                                        <div>
-                                                                            <span class="badge bg-success" style="font-size: 0.9rem;"><i class="bi bi-box-arrow-in-right"></i> {{ $pair['in'] }}</span>
-                                                                            @if(!empty($pair['is_manual_in']))
-                                                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;" title="Manually marked IN">
-                                                                                    <i class="bi bi-pencil"></i> Manual
-                                                                                </span>
-                                                                            @endif
-                                                                        </div>
-                                                                        @if(isset($pair['whatsapp_in']))
-                                                                            @php $waIn = $pair['whatsapp_in']; @endphp
-                                                                            @if($waIn->status === 'success')
-                                                                                <small class="d-block mt-1">
-                                                                                    <span class="badge bg-success" style="font-size: 0.75rem;">
-                                                                                        <i class="bi bi-whatsapp"></i> Sent
-                                                                                    </span>
-                                                                                </small>
-                                                                            @elseif($waIn->status === 'failed')
-                                                                                <small class="d-block mt-1">
-                                                                                    <span class="badge bg-danger" style="font-size: 0.75rem;" title="{{ $waIn->error ?? 'Failed' }}">
-                                                                                        <i class="bi bi-whatsapp"></i> Failed
-                                                                                    </span>
-                                                                                </small>
-                                                                            @else
-                                                                                <small class="d-block mt-1">
-                                                                                    <span class="badge bg-secondary" style="font-size: 0.75rem;">
-                                                                                        <i class="bi bi-whatsapp"></i> Pending
-                                                                                    </span>
-                                                                                </small>
-                                                                            @endif
-                                                                        @else
-                                                                            <small class="d-block mt-1">
-                                                                                <span class="badge bg-secondary" style="font-size: 0.75rem;">
-                                                                                    <i class="bi bi-whatsapp"></i> Not sent
-                                                                                </span>
-                                                                            </small>
-                                                                        @endif
-                                                                    @else
-                                                                        <span class="text-muted">—</span>
-                                                                    @endif
-                                                                </td>
-                                                                <td>
-                                                                    @if($pair['out'])
-                                                                        <div>
-                                                                            <span class="badge bg-danger" style="font-size: 0.9rem;"><i class="bi bi-box-arrow-right"></i> {{ $pair['out'] }}</span>
-                                                                            @if(!empty($pair['is_manual_out']))
-                                                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;" title="Manually marked OUT">
-                                                                                    <i class="bi bi-pencil"></i> Manual
-                                                                                </span>
-                                                                            @endif
-                                                                            @if(isset($pair['is_auto_out']) && $pair['is_auto_out'])
-                                                                                <small class="d-block mt-1">
-                                                                                    <span class="badge bg-warning text-dark" style="font-size: 0.7rem;" title="Automatically marked OUT at 7 PM">
-                                                                                        <i class="bi bi-clock"></i> Auto OUT
-                                                                                    </span>
-                                                                                </small>
-                                                                            @endif
-                                                                        </div>
-                                                                        @if(isset($pair['whatsapp_out']))
-                                                                            @php $waOut = $pair['whatsapp_out']; @endphp
-                                                                            @if($waOut->status === 'success')
-                                                                                <small class="d-block mt-1">
-                                                                                    <span class="badge bg-success" style="font-size: 0.75rem;">
-                                                                                        <i class="bi bi-whatsapp"></i> Sent
-                                                                                    </span>
-                                                                                </small>
-                                                                            @elseif($waOut->status === 'failed')
-                                                                                <small class="d-block mt-1">
-                                                                                    <span class="badge bg-danger" style="font-size: 0.75rem;" title="{{ $waOut->error ?? 'Failed' }}">
-                                                                                        <i class="bi bi-whatsapp"></i> Failed
-                                                                                    </span>
-                                                                                </small>
-                                                                            @else
-                                                                                <small class="d-block mt-1">
-                                                                                    <span class="badge bg-secondary" style="font-size: 0.75rem;">
-                                                                                        <i class="bi bi-whatsapp"></i> Pending
-                                                                                    </span>
-                                                                                </small>
-                                                                            @endif
-                                                                        @else
-                                                                            <small class="d-block mt-1">
-                                                                                <span class="badge bg-secondary" style="font-size: 0.75rem;">
-                                                                                    <i class="bi bi-whatsapp"></i> Not sent
-                                                                                </span>
-                                                                            </small>
-                                                                        @endif
-                                                                    @else
-                                                                        <span class="text-muted">—</span>
-                                                                    @endif
-                                                                </td>
-                                                                <td>
-                                                                    @if($pair['in'] && $pair['out'])
-                                                                        @php
-                                                                            $inTime = \Carbon\Carbon::parse($d['date'] . ' ' . $pair['in']);
-                                                                            $outTime = \Carbon\Carbon::parse($d['date'] . ' ' . $pair['out']);
-                                                                            $duration = $inTime->diff($outTime);
-                                                                        @endphp
-                                                                        <span class="text-muted" style="font-size: 0.9rem;">{{ $duration->format('%h:%I') }}</span>
-                                                                    @else
-                                                                        <span class="text-muted">—</span>
-                                                                    @endif
-                                                                </td>
-                                                                <td>
-                                                                    <span class="badge bg-secondary" style="font-size: 0.85rem;">{{ $pairIndex + 1 }}</span>
-                                                                </td>
-                                                            </tr>
-                                                        @endforeach
-                                                    @else
-                                                        <tr>
-                                                            <td>
-                                                                <div class="fw-medium">{{ $dateObj->format('M d, Y') }}</div>
-                                                                <small class="text-muted">{{ $dateObj->format('D') }}</small>
-                                                            </td>
-                                                            <td colspan="4" class="text-muted">No valid attendance pairs</td>
-                                                        </tr>
-                                                    @endif
-                                                @endforeach
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <div class="mt-2">
-                                        <a href="{{ route('students.show', $rollNumber) }}" class="btn btn-outline-primary btn-sm">
-                                            <i class="bi bi-person"></i> View Full Profile
-                                        </a>
-                                    </div>
-                                @else
-                                    <div class="text-center py-3">
-                                        <span class="text-muted">No attendance data available</span>
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                @endif
-            @endforeach
-        </div>
+            </div>
+        @endforeach
     @else
         <div class="text-center py-4">
             <i class="bi bi-inbox" style="font-size: 2rem; color: var(--brand-muted);"></i>
@@ -315,4 +269,140 @@
     </div>
 </div>
 
+<!-- Create Student Modal -->
+<div class="modal fade" id="createStudentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create Student</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createStudentForm">
+                    @csrf
+                    <div class="mb-3">
+                        <label class="form-label">Roll Number</label>
+                        <input type="text" class="form-control" id="csRoll" name="roll_number" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-control" id="csName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Father's Name</label>
+                        <input type="text" class="form-control" id="csFather" name="father_name">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Parent Mobile</label>
+                        <input type="text" class="form-control" id="csPhone" name="parent_phone" placeholder="+91XXXXXXXXXX or 10-digit">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Program / Class</label>
+                        <input type="text" class="form-control" id="csClass" name="class_course" value="Default Program">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Batch</label>
+                        <input type="text" class="form-control" id="csBatch" name="batch" value="Default Batch">
+                    </div>
+                </form>
+                <div class="alert alert-info small">
+                    The student will be created and mapped to the roll number so future punches display their details.
+                </div>
+                <div class="alert alert-danger d-none" id="csError"></div>
+                <div class="alert alert-success d-none" id="csSuccess"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="csSaveBtn">
+                    <i class="bi bi-check-circle"></i> Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const createStudentModal = new bootstrap.Modal(document.getElementById('createStudentModal'));
+    const csRoll = document.getElementById('csRoll');
+    const csName = document.getElementById('csName');
+    const csFather = document.getElementById('csFather');
+    const csPhone = document.getElementById('csPhone');
+    const csClass = document.getElementById('csClass');
+    const csBatch = document.getElementById('csBatch');
+    const csError = document.getElementById('csError');
+    const csSuccess = document.getElementById('csSuccess');
+    const csSaveBtn = document.getElementById('csSaveBtn');
+
+    document.querySelectorAll('.create-student-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const roll = this.dataset.roll || '';
+            csRoll.value = roll;
+            csName.value = '';
+            csFather.value = '';
+            csPhone.value = '';
+            csClass.value = 'Default Program';
+            csBatch.value = 'Default Batch';
+            csError.classList.add('d-none');
+            csSuccess.classList.add('d-none');
+            createStudentModal.show();
+        });
+    });
+
+    csSaveBtn.addEventListener('click', function() {
+        csError.classList.add('d-none');
+        csSuccess.classList.add('d-none');
+
+        const payload = {
+            roll_number: csRoll.value.trim(),
+            name: csName.value.trim(),
+            father_name: csFather.value.trim(),
+            parent_phone: csPhone.value.trim(),
+            class_course: csClass.value.trim() || 'Default Program',
+            batch: csBatch.value.trim() || 'Default Batch',
+            _token: '{{ csrf_token() }}'
+        };
+
+        if (!payload.roll_number || !payload.name) {
+            csError.textContent = 'Roll number and name are required.';
+            csError.classList.remove('d-none');
+            return;
+        }
+
+        csSaveBtn.disabled = true;
+        csSaveBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
+
+        fetch('{{ route('students.create-from-punch') }}', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.success === false) {
+                throw new Error(data.message || 'Failed to create student.');
+            }
+            csSuccess.textContent = data.message || 'Student created.';
+            csSuccess.classList.remove('d-none');
+            setTimeout(() => window.location.reload(), 800);
+        })
+        .catch(err => {
+            csError.textContent = err.message || 'Failed to create student.';
+            csError.classList.remove('d-none');
+        })
+        .finally(() => {
+            csSaveBtn.disabled = false;
+            csSaveBtn.innerHTML = '<i class="bi bi-check-circle"></i> Save';
+        });
+    });
+});
+</script>
+@endpush

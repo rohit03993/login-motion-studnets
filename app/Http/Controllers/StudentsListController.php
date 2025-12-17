@@ -5,12 +5,18 @@ namespace App\Http\Controllers;
 use App\Models\Student;
 use App\Models\Course;
 use App\Models\Batch;
+use App\Models\Roster;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class StudentsListController extends Controller
 {
+    private const DEFAULT_COURSE = 'Default Program';
+    private const DEFAULT_BATCH = 'Default Batch';
     /**
      * List all students with their details
      * Shows all unique employee_ids from punch_logs, even if they don't have student records
@@ -161,6 +167,77 @@ class StudentsListController extends Controller
     }
 
     /**
+     * Bulk import students from CSV/Excel (roll_number,name,father_name,parent_phone).
+     */
+    public function import(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'file' => 'required|file|mimes:csv,txt',
+            'map_roll' => 'required|string',
+            'map_name' => 'required|string',
+            'map_father' => 'nullable|string',
+            'map_phone' => 'nullable|string',
+        ]);
+
+        $file = $validated['file'];
+        $path = $file->getRealPath();
+
+        $rows = $this->readCsv($path);
+        if (empty($rows)) {
+            return back()->withErrors(['file' => 'The file is empty or not readable.']);
+        }
+
+        // Normalize headers
+        $headers = array_map(function ($h) {
+            return Str::of($h)->trim()->toString();
+        }, array_keys($rows[0]));
+
+        $mapRoll = $validated['map_roll'];
+        $mapName = $validated['map_name'];
+        $mapFather = $validated['map_father'] ?? null;
+        $mapPhone = $validated['map_phone'] ?? null;
+
+        $this->ensureDefaultBucket();
+
+        $created = 0;
+        foreach ($rows as $row) {
+            $roll = trim((string) ($row[$mapRoll] ?? ''));
+            if ($roll === '') {
+                continue;
+            }
+
+            $student = Student::firstOrNew(['roll_number' => $roll]);
+            $student->roll_number = $roll;
+            $student->name = $row[$mapName] ?? null;
+            $student->father_name = $mapFather ? ($row[$mapFather] ?? null) : null;
+            $student->class_course = self::DEFAULT_COURSE;
+            $student->batch = self::DEFAULT_BATCH;
+            $student->parent_phone = $mapPhone ? $this->normalizeIndianPhone($row[$mapPhone] ?? null) : null;
+            $student->whatsapp_send_to = 'primary';
+            $student->alerts_enabled = true;
+            $student->save();
+            $created++;
+        }
+
+        // Store roster with mapping for future auto-creation
+        Storage::makeDirectory('rosters');
+        $storedPath = $file->storeAs('rosters', time() . '-' . $file->getClientOriginalName());
+        Roster::create([
+            'file_name' => $file->getClientOriginalName(),
+            'storage_path' => $storedPath,
+            'headers' => $headers,
+            'mapping' => [
+                'roll' => $mapRoll,
+                'name' => $mapName,
+                'father' => $mapFather,
+                'phone' => $mapPhone,
+            ],
+        ]);
+
+        return back()->with('success', "Imported/updated {$created} student(s). All placed in default bucket.");
+    }
+
+    /**
      * Bulk assign class to selected students
      */
     public function bulkAssignClass(Request $request): JsonResponse
@@ -171,7 +248,7 @@ class StudentsListController extends Controller
             'class_course' => 'required|string|max:255',
         ]);
 
-        $course = Course::where('name', $validated['class_course'])->first();
+        $course = Course::with('batches')->where('name', $validated['class_course'])->first();
         if (!$course) {
             return response()->json([
                 'success' => false,
@@ -179,18 +256,22 @@ class StudentsListController extends Controller
             ], 400);
         }
 
+        // Choose the first batch of the course if present, otherwise fallback to Default Batch
+        $targetBatch = $course->batches->first()->name ?? self::DEFAULT_BATCH;
+
         $updated = 0;
         foreach ($validated['student_rolls'] as $rollNumber) {
             $student = Student::firstOrNew(['roll_number' => $rollNumber]);
             $student->roll_number = $rollNumber;
             $student->class_course = $validated['class_course'];
+            $student->batch = $targetBatch;
             $student->save();
             $updated++;
         }
 
         return response()->json([
             'success' => true,
-            'message' => "Successfully assigned class to {$updated} student(s).",
+            'message' => "Successfully assigned class and batch to {$updated} student(s).",
             'updated_count' => $updated,
         ]);
     }
@@ -234,6 +315,125 @@ class StudentsListController extends Controller
     {
         $res = DB::select("SHOW TABLES LIKE 'manual_attendances'");
         return !empty($res);
+    }
+
+    private function ensureDefaultBucket(): void
+    {
+        $course = Course::firstOrCreate(
+            ['name' => self::DEFAULT_COURSE],
+            ['description' => 'Auto-created default program/bucket', 'is_active' => true]
+        );
+
+        Batch::firstOrCreate(
+            ['name' => self::DEFAULT_BATCH],
+            ['course_id' => $course->id, 'description' => 'Auto-created default batch', 'is_active' => true]
+        );
+    }
+
+    private function normalizeIndianPhone(?string $raw): ?string
+    {
+        if (!$raw) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D+/', '', $raw);
+
+        if (strlen($digits) === 10) {
+            return '+91' . $digits;
+        }
+        if (strlen($digits) === 12 && str_starts_with($digits, '91')) {
+            return '+' . $digits;
+        }
+        if (strlen($digits) === 13 && str_starts_with($digits, '091')) {
+            return '+' . substr($digits, 1);
+        }
+
+        return null;
+    }
+
+    /**
+     * Read CSV into an array of associative rows with basic delimiter/header detection.
+     */
+    private function readCsv(string $path): array
+    {
+        $rows = [];
+        if (!is_readable($path)) {
+            return $rows;
+        }
+
+        if (($handle = fopen($path, 'r')) === false) {
+            return $rows;
+        }
+
+        // Read first few lines to detect delimiter and header
+        $sampleLines = [];
+        $maxSample = 5;
+        while (($line = fgets($handle)) !== false && count($sampleLines) < $maxSample) {
+            $trim = trim($line);
+            if ($trim === '') {
+                continue;
+            }
+            $sampleLines[] = $trim;
+        }
+        // Reset pointer
+        rewind($handle);
+
+        // Detect delimiter: choose from comma, semicolon, tab by max splits
+        $delims = [',', ';', "\t"];
+        $bestDelim = ',';
+        $bestScore = -1;
+        foreach ($delims as $d) {
+            $score = 0;
+            foreach ($sampleLines as $l) {
+                $score += substr_count($l, $d);
+            }
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $bestDelim = $d;
+            }
+        }
+
+        // Determine header line: first non-empty; if only one column but next line has more, use next line
+        $header = null;
+        $firstDataLine = null;
+        if (!empty($sampleLines)) {
+            $hdrParts = array_map('trim', explode($bestDelim, $sampleLines[0]));
+            if (count($hdrParts) === 1 && isset($sampleLines[1])) {
+                $nextParts = array_map('trim', explode($bestDelim, $sampleLines[1]));
+                if (count($nextParts) > 1) {
+                    $header = $nextParts;
+                    $firstDataLine = 2; // start reading after second sample line
+                }
+            }
+            if ($header === null) {
+                $header = $hdrParts;
+                $firstDataLine = 1;
+            }
+        }
+
+        // Generate generic headers if empty
+        $header = array_map(function ($h, $idx) {
+            $trimmed = Str::of($h)->trim()->toString();
+            return $trimmed !== '' ? $trimmed : 'Column' . ($idx + 1);
+        }, $header, array_keys($header));
+
+        $lineNumber = 0;
+        while (($data = fgetcsv($handle, 0, $bestDelim)) !== false) {
+            $lineNumber++;
+            if ($lineNumber < $firstDataLine) {
+                continue; // skip header/title lines
+            }
+            if (count($data) === 1 && trim($data[0]) === '') {
+                continue;
+            }
+            $row = [];
+            foreach ($header as $idx => $col) {
+                $row[$col] = $data[$idx] ?? null;
+            }
+            $rows[] = $row;
+        }
+        fclose($handle);
+        return $rows;
     }
 }
 

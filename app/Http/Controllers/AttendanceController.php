@@ -178,7 +178,8 @@ class AttendanceController extends Controller
         }
 
         // Optimize pagination - limit to reasonable page size
-        $perPage = min((int) $request->query('per_page', 50), 100); // Max 100 per page
+        // Default to 10 per page; allow override up to 100
+        $perPage = min((int) $request->query('per_page', 10), 100);
         $rows = $query->paginate($perPage)->appends($request->query());
 
         // Compute IN/OUT states for each row and match WhatsApp status
@@ -467,6 +468,7 @@ class AttendanceController extends Controller
     {
         $dateFrom = $request->query('date_from');
         $dateTo = $request->query('date_to');
+        $courses = \App\Models\Course::with('batches')->orderBy('name')->get();
         
         // Enforce minimum attendance date (2025-12-15)
         $minDate = self::MIN_ATTENDANCE_DATE;
@@ -675,6 +677,7 @@ class AttendanceController extends Controller
                 'hours' => $totalDurationHours,
                 'minutes' => $totalDurationMinutes,
             ],
+            'courses' => $courses,
         ]);
     }
 

@@ -29,5 +29,38 @@
         </div>
     </form>
 </div>
+
+@if(auth()->user()->isSuperAdmin())
+<div class="brand-card">
+    <div class="section-title mb-2">Data Admin (Super Admin)</div>
+    <div class="muted mb-3">Reset/seed and clear logs without running CLI.</div>
+    <div class="d-flex flex-column flex-md-row gap-2">
+        <form method="POST" action="{{ route('data-admin.reset-students') }}" onsubmit="return confirm('This will truncate students and manual attendance. Continue?');">
+            @csrf
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash"></i> Reset Students & Manual Attendance
+            </button>
+        </form>
+        <form method="POST" action="{{ route('data-admin.seed-defaults') }}">
+            @csrf
+            <button type="submit" class="btn btn-outline-primary">
+                <i class="bi bi-seedling"></i> Seed Default Program/Batch
+            </button>
+        </form>
+        <form method="POST" action="{{ route('data-admin.clear-punch-logs') }}" onsubmit="return confirm('This will truncate punch_logs. Continue?');">
+            @csrf
+            <button type="submit" class="btn btn-outline-warning">
+                <i class="bi bi-x-circle"></i> Clear Punch Logs
+            </button>
+        </form>
+        <form method="POST" action="{{ route('data-admin.clear-whatsapp-logs') }}" onsubmit="return confirm('This will truncate whatsapp_logs. Continue?');">
+            @csrf
+            <button type="submit" class="btn btn-outline-secondary">
+                <i class="bi bi-whatsapp"></i> Clear WhatsApp Logs
+            </button>
+        </form>
+    </div>
+</div>
+@endif
 @endsection
 

@@ -23,7 +23,7 @@ class ManualAttendanceController extends Controller
      */
     public function index(Request $request)
     {
-        $batch = $request->query('batch');
+        $classCourse = $request->query('class');
         $date = $request->query('date', Carbon::today()->format('Y-m-d'));
         
         // Enforce minimum attendance date
@@ -31,32 +31,32 @@ class ManualAttendanceController extends Controller
             $date = self::MIN_ATTENDANCE_DATE;
         }
         
-        // Get all unique batches for filter dropdown
-        $batches = Student::whereNotNull('batch')
-            ->where('batch', '!=', '')
+        // Get all unique classes for filter dropdown
+        $classes = Student::whereNotNull('class_course')
+            ->where('class_course', '!=', '')
             ->distinct()
-            ->orderBy('batch')
-            ->pluck('batch')
+            ->orderBy('class_course')
+            ->pluck('class_course')
             ->toArray();
         
-        // Check if there are students with no batch
-        $hasNoBatch = Student::where(function($q) {
-            $q->whereNull('batch')->orWhere('batch', '');
+        // Check if there are students with no class
+        $hasNoClass = Student::where(function($q) {
+            $q->whereNull('class_course')->orWhere('class_course', '');
         })->exists();
         
         $presentStudents = collect([]);
         $absentStudents = collect([]);
         
-        if ($batch && $date) {
-            // Get all students in the batch
+        if ($classCourse && $date) {
+            // Get all students in the class
             $query = Student::query();
             
-            if ($batch === '__no_batch__') {
+            if ($classCourse === '__no_class__') {
                 $query->where(function($q) {
-                    $q->whereNull('batch')->orWhere('batch', '');
+                    $q->whereNull('class_course')->orWhere('class_course', '');
                 });
             } else {
-                $query->where('batch', $batch);
+                $query->where('class_course', $classCourse);
             }
             
             $allStudents = $query->orderBy('roll_number')->get();
@@ -96,10 +96,10 @@ class ManualAttendanceController extends Controller
         }
         
         return view('manual-attendance.index', compact(
-            'batch',
+            'classCourse',
             'date',
-            'batches',
-            'hasNoBatch',
+            'classes',
+            'hasNoClass',
             'presentStudents',
             'absentStudents'
         ));

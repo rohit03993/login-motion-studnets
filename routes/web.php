@@ -12,6 +12,7 @@ use App\Http\Controllers\StudentsListController;
 use App\Http\Controllers\ManualAttendanceController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\BatchController;
+use App\Http\Controllers\DataAdminController;
 
 // Authentication Routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -41,21 +42,33 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{course}', [CourseController::class, 'destroy'])->name('destroy');
     });
 
-    // Batches Management (Super Admin Only) - MUST come before /students/{roll} route
-    Route::prefix('students/batches')->name('batches.')->middleware('superadmin')->group(function () {
-        Route::get('/', [BatchController::class, 'index'])->name('index');
-        Route::get('/create', [BatchController::class, 'create'])->name('create');
-        Route::post('/', [BatchController::class, 'store'])->name('store');
-        Route::get('/{batch}/edit', [BatchController::class, 'edit'])->name('edit');
-        Route::match(['put', 'patch'], '/{batch}', [BatchController::class, 'update'])->name('update');
-        Route::delete('/{batch}', [BatchController::class, 'destroy'])->name('destroy');
-    });
+    // Batches Management disabled from menu; keep routes for legacy direct access if needed
+    // Route::prefix('students/batches')->name('batches.')->middleware('superadmin')->group(function () {
+    //     Route::get('/', [BatchController::class, 'index'])->name('index');
+    //     Route::get('/create', [BatchController::class, 'create'])->name('create');
+    //     Route::post('/', [BatchController::class, 'store'])->name('store');
+    //     Route::get('/{batch}/edit', [BatchController::class, 'edit'])->name('edit');
+    //     Route::match(['put', 'patch'], '/{batch}', [BatchController::class, 'update'])->name('update');
+    //     Route::delete('/{batch}', [BatchController::class, 'destroy'])->name('destroy');
+    // });
 
     // Bulk Student Assignment (Super Admin Only) - MUST come before /students/{roll} route
     Route::prefix('students')->name('students.')->middleware('superadmin')->group(function () {
         Route::post('/bulk-assign-class', [StudentsListController::class, 'bulkAssignClass'])->name('bulk-assign-class');
         Route::post('/bulk-assign-batch', [StudentsListController::class, 'bulkAssignBatch'])->name('bulk-assign-batch');
+        Route::post('/import', [StudentsListController::class, 'import'])->name('import');
     });
+
+    // Data admin (Super Admin)
+    Route::prefix('admin/data')->middleware('superadmin')->name('data-admin.')->group(function () {
+        Route::post('/reset-students', [DataAdminController::class, 'reset'])->name('reset-students');
+        Route::post('/seed-defaults', [DataAdminController::class, 'seedDefaults'])->name('seed-defaults');
+        Route::post('/clear-punch-logs', [DataAdminController::class, 'clearPunchLogs'])->name('clear-punch-logs');
+        Route::post('/clear-whatsapp-logs', [DataAdminController::class, 'clearWhatsappLogs'])->name('clear-whatsapp-logs');
+    });
+
+    // Quick-create student from unmapped punch (all authenticated)
+    Route::post('/students/create-from-punch', [StudentController::class, 'createFromPunch'])->name('students.create-from-punch');
 
     // Student Profile (must come AFTER courses/batches routes to avoid route conflicts)
     Route::get('/students/{roll}', [AttendanceController::class, 'student'])->name('students.show');

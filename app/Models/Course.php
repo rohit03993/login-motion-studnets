@@ -62,6 +62,7 @@ class Course extends Model
      */
     public function isDeletable(): bool
     {
-        return $this->student_count === 0 && $this->batch_count === 0;
+        // Allow delete if no students; batches (if any) will be removed with the course
+        return $this->student_count === 0;
     }
 }

@@ -19,17 +19,17 @@
             <input type="date" name="date" value="{{ $date }}" class="form-control" required>
         </div>
         <div class="col-12 col-md-6">
-            <label class="form-label"><i class="bi bi-funnel"></i> Batch</label>
-            <select name="batch" class="form-select" required>
-                <option value="">Select Batch</option>
-                @if($hasNoBatch)
-                    <option value="__no_batch__" {{ $batch === '__no_batch__' ? 'selected' : '' }}>
-                        (No Batch / Unassigned)
+            <label class="form-label"><i class="bi bi-funnel"></i> Class</label>
+            <select name="class" class="form-select" required>
+                <option value="">Select Class</option>
+                @if($hasNoClass)
+                    <option value="__no_class__" {{ $classCourse === '__no_class__' ? 'selected' : '' }}>
+                        (No Class / Unassigned)
                     </option>
                 @endif
-                @foreach($batches as $batchOption)
-                    <option value="{{ $batchOption }}" {{ $batch === $batchOption ? 'selected' : '' }}>
-                        {{ $batchOption }}
+                @foreach($classes as $cls)
+                    <option value="{{ $cls }}" {{ $classCourse === $cls ? 'selected' : '' }}>
+                        {{ $cls }}
                     </option>
                 @endforeach
             </select>
@@ -42,7 +42,7 @@
     </form>
 </div>
 
-@if($batch && $date)
+@if($classCourse && $date)
     <div class="row g-3">
         <!-- Present Students -->
         <div class="col-12 col-lg-6">

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Course;
+use App\Models\Batch;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -21,6 +22,7 @@ class CourseController extends Controller
         // Manually add student count for each course
         foreach ($courses as $course) {
             $course->student_count = $course->students()->count();
+            $course->batch_count = $course->batches()->count();
         }
 
         return view('students.courses.index', compact('courses'));
@@ -42,16 +44,25 @@ class CourseController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:courses,name',
             'description' => 'nullable|string|max:1000',
+            'batch_name' => 'required|string|max:255|unique:batches,name',
+            'batch_description' => 'nullable|string|max:1000',
         ]);
 
-        Course::create([
+        $course = Course::create([
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
             'is_active' => true,
         ]);
 
+        Batch::create([
+            'name' => $validated['batch_name'],
+            'course_id' => $course->id,
+            'description' => $validated['batch_description'] ?? null,
+            'is_active' => true,
+        ]);
+
         return redirect()->route('courses.index')
-            ->with('success', 'Course created successfully.');
+            ->with('success', 'Course and default batch created successfully.');
     }
 
     /**
@@ -90,9 +101,11 @@ class CourseController extends Controller
     {
         if (!$course->isDeletable()) {
             return redirect()->route('courses.index')
-                ->with('error', 'Cannot delete course. It has students or batches assigned.');
+                ->with('error', 'Cannot delete course. It has students assigned.');
         }
 
+        // Remove related batches (if any)
+        Batch::where('course_id', $course->id)->delete();
         $course->delete();
 
         return redirect()->route('courses.index')

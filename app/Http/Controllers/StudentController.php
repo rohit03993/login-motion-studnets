@@ -2,12 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Batch;
+use App\Models\Course;
 use App\Models\Student;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class StudentController extends Controller
 {
+    private const DEFAULT_COURSE = 'Default Program';
+    private const DEFAULT_BATCH = 'Default Batch';
     /**
      * Update student information (name, father, class, batch, contact, alerts).
      */
@@ -89,6 +94,50 @@ class StudentController extends Controller
     }
 
     /**
+    * Create a student from an unmapped punch (JSON endpoint).
+    */
+    public function createFromPunch(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'roll_number' => 'required|string|max:255',
+            'name' => 'required|string|max:255',
+            'father_name' => 'nullable|string|max:255',
+            'parent_phone' => 'nullable|string|max:20',
+            'class_course' => 'nullable|string|max:255',
+            'batch' => 'nullable|string|max:255',
+        ]);
+
+        $this->ensureDefaultBucket();
+
+        $roll = $validated['roll_number'];
+        $student = Student::firstOrNew(['roll_number' => $roll]);
+
+        $student->roll_number = $roll;
+        $student->name = $validated['name'];
+        $student->father_name = $validated['father_name'] ?? null;
+        $student->class_course = $validated['class_course'] ?? self::DEFAULT_COURSE;
+        $student->batch = $validated['batch'] ?? self::DEFAULT_BATCH;
+
+        $normalizedPrimary = $this->normalizeIndianPhone($validated['parent_phone'] ?? null);
+        if (!empty($validated['parent_phone']) && !$normalizedPrimary) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Enter a valid 10-digit Indian mobile (auto +91) or +91XXXXXXXXXX.',
+            ], 422);
+        }
+        $student->parent_phone = $normalizedPrimary;
+        $student->whatsapp_send_to = 'primary';
+        $student->alerts_enabled = true;
+
+        $student->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Student created/updated successfully.',
+        ]);
+    }
+
+    /**
      * Normalize Indian mobile numbers to +91XXXXXXXXXX.
      */
     private function normalizeIndianPhone(?string $raw): ?string
@@ -115,6 +164,22 @@ class StudentController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Ensure default course and batch exist for fallback assignments.
+     */
+    private function ensureDefaultBucket(): void
+    {
+        $course = Course::firstOrCreate(
+            ['name' => self::DEFAULT_COURSE],
+            ['description' => 'Auto-created default program/bucket', 'is_active' => true]
+        );
+
+        Batch::firstOrCreate(
+            ['name' => self::DEFAULT_BATCH],
+            ['course_id' => $course->id, 'description' => 'Auto-created default batch', 'is_active' => true]
+        );
     }
 }
 

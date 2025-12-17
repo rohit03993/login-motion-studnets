@@ -297,9 +297,7 @@
                                 <li><a class="dropdown-item" href="{{ route('courses.index') }}">
                                     <i class="bi bi-book"></i> Manage Classes
                                 </a></li>
-                                <li><a class="dropdown-item" href="{{ route('batches.index') }}">
-                                    <i class="bi bi-diagram-3"></i> Manage Batches
-                                </a></li>
+                                {{-- Batches menu hidden; batches created via class flow --}}
                             @endif
                         </ul>
                     </div>

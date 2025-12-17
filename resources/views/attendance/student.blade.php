@@ -161,11 +161,18 @@
         </div>
         <div class="col-6">
             <label class="form-label">Class/Course</label>
-            <input type="text" name="class_course" value="{{ old('class_course', $student->class_course) }}" class="form-control" placeholder="Class">
+            <select name="class_course" id="classSelect" class="form-select">
+                @foreach($courses as $c)
+                    <option value="{{ $c->name }}" {{ old('class_course', $student->class_course) === $c->name ? 'selected' : '' }}>
+                        {{ $c->name }}
+                    </option>
+                @endforeach
+            </select>
         </div>
         <div class="col-6">
             <label class="form-label">Batch</label>
-            <input type="text" name="batch" value="{{ old('batch', $student->batch) }}" class="form-control" placeholder="Batch">
+            <input type="text" name="batch" id="batchField" value="{{ old('batch', $student->batch) }}" class="form-control" placeholder="Batch" readonly>
+            <div class="form-text small">Auto-selected from the chosen class.</div>
         </div>
         <div class="col-12 col-md-6">
             <label class="form-label">Primary Mobile (+91 auto)</label>
@@ -413,6 +420,19 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Class -> batch auto mapping
+    const classSelect = document.getElementById('classSelect');
+    const batchField = document.getElementById('batchField');
+    const courseBatchMap = @json($courses->mapWithKeys(fn($c) => [$c->name => ($c->batches->first()->name ?? 'Default Batch')]));
+    function syncBatch() {
+        if (classSelect && batchField) {
+            const cls = classSelect.value;
+            batchField.value = courseBatchMap[cls] || 'Default Batch';
+        }
+    }
+    classSelect?.addEventListener('change', syncBatch);
+    syncBatch();
+
     const editBtn = document.getElementById('editStudentBtn');
     const cancelBtn = document.getElementById('cancelEditBtn');
     const viewDiv = document.getElementById('studentInfoView');
