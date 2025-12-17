@@ -31,22 +31,7 @@
             <input type="text" name="search" value="{{ $search }}" class="form-control" 
                    placeholder="Search by roll number, name, father's name, or phone...">
         </div>
-        <div class="col-12 col-md-4">
-            <label class="form-label"><i class="bi bi-funnel"></i> Filter by Batch</label>
-            <select name="batch" class="form-select">
-                <option value="">All Batches</option>
-                @if($hasNoBatch)
-                    <option value="__no_batch__" {{ $batch === '__no_batch__' ? 'selected' : '' }}>
-                        (No Batch / Unassigned)
-                    </option>
-                @endif
-                @foreach($batches as $batchOption)
-                    <option value="{{ $batchOption }}" {{ $batch === $batchOption ? 'selected' : '' }}>
-                        {{ $batchOption }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
+        {{-- Batch filter removed --}}
         <div class="col-12 col-md-2">
             <button type="submit" class="btn btn-primary w-100">
                 <i class="bi bi-search"></i> Search
@@ -166,9 +151,6 @@
                             @else
                                 <span class="text-muted">—</span>
                             @endif
-                            @if($student->batch)
-                                <small class="text-muted">Batch: {{ $student->batch }}</small>
-                            @endif
                         </td>
                         <td>
                             @if($student->father_name)
@@ -270,35 +252,6 @@
     </div>
 </div>
 
-<!-- Bulk Assign Batch Modal -->
-<div class="modal fade" id="bulkAssignBatchModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Assign Batch to Selected Students</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>You are about to assign a batch to <span id="batchAssignCount" class="fw-bold">0</span> student(s).</p>
-                <div class="mb-3">
-                    <label for="bulkBatchSelect" class="form-label">Select Batch *</label>
-                    <select class="form-select" id="bulkBatchSelect" required>
-                        <option value="">Choose a batch...</option>
-                        @foreach(\App\Models\Batch::where('is_active', true)->orderBy('name')->get() as $batch)
-                            <option value="{{ $batch->name }}">{{ $batch->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="confirmAssignBatch">
-                    <i class="bi bi-check-circle"></i> Assign Batch
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 
 @push('scripts')
 <script>
@@ -365,7 +318,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectedCount = document.getElementById('selectedCount');
     const clearSelection = document.getElementById('clearSelection');
     const bulkAssignClassModal = new bootstrap.Modal(document.getElementById('bulkAssignClassModal'));
-    const bulkAssignBatchModal = new bootstrap.Modal(document.getElementById('bulkAssignBatchModal'));
 
     function updateSelectionUI() {
         const selected = Array.from(checkboxes).filter(cb => cb.checked);
@@ -420,9 +372,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (this.value === 'assign-class') {
                 document.getElementById('classAssignCount').textContent = selected.length;
                 bulkAssignClassModal.show();
-            } else if (this.value === 'assign-batch') {
-                document.getElementById('batchAssignCount').textContent = selected.length;
-                bulkAssignBatchModal.show();
             }
             
             this.value = ''; // Reset dropdown
@@ -475,49 +424,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Confirm assign batch
-    document.getElementById('confirmAssignBatch')?.addEventListener('click', function() {
-        const selected = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
-        const batch = document.getElementById('bulkBatchSelect').value;
-        
-        if (!batch) {
-            alert('Please select a batch');
-            return;
-        }
-
-        this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Assigning...';
-
-        fetch('{{ route("students.bulk-assign-batch") }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                student_rolls: selected,
-                batch: batch
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                bulkAssignBatchModal.hide();
-                alert(data.message);
-                window.location.reload();
-            } else {
-                alert(data.message || 'Failed to assign batch');
-                this.disabled = false;
-                this.innerHTML = '<i class="bi bi-check-circle"></i> Assign Batch';
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred. Please try again.');
-            this.disabled = false;
-            this.innerHTML = '<i class="bi bi-check-circle"></i> Assign Batch';
-        });
-    });
+    // batch assignment removed
 });
 </script>
 @endpush

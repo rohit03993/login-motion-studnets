@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ManualAttendance;
+use App\Models\Course;
 use App\Models\Student;
 use App\Models\WhatsAppLog;
 use App\Services\AisensyService;
@@ -23,7 +24,7 @@ class ManualAttendanceController extends Controller
      */
     public function index(Request $request)
     {
-        $classCourse = $request->query('class');
+        $classCourse = $request->query('class', 'ALL');
         $date = $request->query('date', Carbon::today()->format('Y-m-d'));
         
         // Enforce minimum attendance date
@@ -31,13 +32,26 @@ class ManualAttendanceController extends Controller
             $date = self::MIN_ATTENDANCE_DATE;
         }
         
-        // Get all unique classes for filter dropdown
-        $classes = Student::whereNotNull('class_course')
+        // Get class options from courses and any existing student data (union)
+        $courseClasses = Course::orderBy('name')->pluck('name')->toArray();
+        $studentClasses = Student::whereNotNull('class_course')
             ->where('class_course', '!=', '')
             ->distinct()
             ->orderBy('class_course')
             ->pluck('class_course')
             ->toArray();
+        $classes = collect($courseClasses)
+            ->merge($studentClasses)
+            ->unique()
+            ->values()
+            ->toArray();
+        if (empty($classes)) {
+            $classes = ['Default Program'];
+        }
+        array_unshift($classes, 'ALL');
+        if (!is_array($classes)) {
+            $classes = [$classes];
+        }
         
         // Check if there are students with no class
         $hasNoClass = Student::where(function($q) {
@@ -48,10 +62,12 @@ class ManualAttendanceController extends Controller
         $absentStudents = collect([]);
         
         if ($classCourse && $date) {
-            // Get all students in the class
+            // Get students based on selection
             $query = Student::query();
             
-            if ($classCourse === '__no_class__') {
+            if ($classCourse === 'ALL') {
+                // no filter
+            } elseif ($classCourse === '__no_class__') {
                 $query->where(function($q) {
                     $q->whereNull('class_course')->orWhere('class_course', '');
                 });

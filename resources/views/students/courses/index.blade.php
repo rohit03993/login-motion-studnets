@@ -45,7 +45,6 @@
                         <th>Name</th>
                         <th>Description</th>
                         <th>Students</th>
-                        <th>Batches</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -57,9 +56,6 @@
                             <td class="text-muted">{{ $course->description ?? '—' }}</td>
                             <td>
                                 <span class="badge bg-info">{{ $course->student_count ?? 0 }}</span>
-                            </td>
-                            <td>
-                                <span class="badge bg-secondary">{{ $course->batches_count ?? 0 }}</span>
                             </td>
                             <td>
                                 @if($course->is_active)
@@ -84,7 +80,7 @@
                                         </form>
                                     @else
                                         <button class="btn btn-sm btn-outline-secondary" disabled 
-                                                title="Cannot delete: Has students or batches assigned">
+                                                title="Cannot delete: Has students assigned">
                                             <i class="bi bi-lock"></i> Locked
                                         </button>
                                     @endif

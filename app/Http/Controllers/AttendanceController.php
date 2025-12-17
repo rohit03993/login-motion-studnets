@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Student;
 use App\Models\ManualAttendance;
+use App\Models\Course;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,9 +18,13 @@ class AttendanceController extends Controller
     
     // Minimum attendance date - only show attendance from this date onwards
     private const MIN_ATTENDANCE_DATE = '2025-12-15';
+    private const DEFAULT_PROGRAM = 'Default Program';
 
     public function index(Request $request)
     {
+        // Preload available classes for dropdowns
+        $courses = Course::orderBy('name')->get();
+
         // Check if punch_logs table exists (created by EasyTimePro parallel DB)
         $tableExists = DB::select("SHOW TABLES LIKE 'punch_logs'");
         if (empty($tableExists)) {
@@ -58,6 +63,7 @@ class AttendanceController extends Controller
                     'employees' => ['hours' => 0, 'minutes' => 0],
                 ],
                 'setup_required' => true,
+                'courses' => $courses,
             ]);
         }
         
@@ -181,6 +187,26 @@ class AttendanceController extends Controller
         // Default to 10 per page; allow override up to 100
         $perPage = min((int) $request->query('per_page', 10), 100);
         $rows = $query->paginate($perPage)->appends($request->query());
+
+        // Auto-bucket unmapped rolls into Default Program
+        $unmappedRolls = $rows->getCollection()
+            ->filter(fn($row) => empty($row->student_name))
+            ->pluck('employee_id')
+            ->unique()
+            ->values();
+        if ($unmappedRolls->isNotEmpty()) {
+            $this->ensureDefaultProgram();
+            foreach ($unmappedRolls as $rollNumber) {
+                Student::firstOrCreate(
+                    ['roll_number' => (string)$rollNumber],
+                    [
+                        'class_course' => self::DEFAULT_PROGRAM,
+                        'alerts_enabled' => true,
+                        'whatsapp_send_to' => 'primary',
+                    ]
+                );
+            }
+        }
 
         // Compute IN/OUT states for each row and match WhatsApp status
         $rows->getCollection()->transform(function ($row) {
@@ -447,6 +473,7 @@ class AttendanceController extends Controller
             'rows' => $rows,
             'groupedRows' => $groupedRows,
             'studentPairs' => $studentPairs,
+            'courses' => $courses,
             'filters' => [
                 'roll' => $roll,
                 'name' => $name,
@@ -468,7 +495,7 @@ class AttendanceController extends Controller
     {
         $dateFrom = $request->query('date_from');
         $dateTo = $request->query('date_to');
-        $courses = \App\Models\Course::with('batches')->orderBy('name')->get();
+        $courses = \App\Models\Course::orderBy('name')->get();
         
         // Enforce minimum attendance date (2025-12-15)
         $minDate = self::MIN_ATTENDANCE_DATE;
@@ -1228,6 +1255,17 @@ class AttendanceController extends Controller
             'current_total' => $currentTotal,
             'timestamp' => time(),
         ]);
+    }
+
+    /**
+     * Ensure the default program exists for auto-bucketing unmapped rolls.
+     */
+    private function ensureDefaultProgram(): void
+    {
+        Course::firstOrCreate(
+            ['name' => self::DEFAULT_PROGRAM],
+            ['description' => 'Auto-created default program/bucket', 'is_active' => true]
+        );
     }
 
     /**

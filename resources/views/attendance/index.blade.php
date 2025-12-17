@@ -1,6 +1,56 @@
 @extends('layouts.app', ['title' => 'Live Attendance'])
 
 @section('content')
+<style>
+    .live-stat {
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        color: #fff;
+        border: none;
+        box-shadow: 0 15px 35px rgba(79, 70, 229, 0.25);
+    }
+    .live-stat .stat-label { color: rgba(255,255,255,0.82); }
+    .live-stat .stat-value { color: #fff; }
+    .punch-card {
+        border: 1px solid #e9edf5;
+        border-radius: 14px;
+        box-shadow: 0 10px 30px rgba(15,23,42,0.08);
+        overflow: hidden;
+    }
+    .punch-card .card-header {
+        background: #f8fafc;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .punch-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: #eef2ff;
+        border: 1px solid #e0e7ff;
+        color: #4338ca;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .punch-card tbody tr:hover {
+        background: #f9fafb;
+    }
+    .state-pill {
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-weight: 600;
+        font-size: 12px;
+    }
+    .filters-card {
+        background: linear-gradient(135deg, #ecfeff, #eef2ff);
+        border: 1px solid #e0f2fe;
+        box-shadow: 0 10px 30px rgba(15,23,42,0.06);
+    }
+    @media (max-width: 768px) {
+        .live-stat .stat-value { font-size: 18px; }
+        .stat-card { margin-bottom: 8px; }
+    }
+</style>
 <div class="brand-card mb-3">
     <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-md-between">
         <div>
@@ -17,7 +67,7 @@
     </div>
 </div>
 
-<div class="brand-card mb-3">
+<div class="brand-card mb-3 filters-card">
     <div class="section-title mb-3"><i class="bi bi-funnel"></i> Filters</div>
     <form class="row gy-2 gx-2 align-items-end" method="get" action="{{ url('/attendance') }}">
         <div class="col-12 col-md-4">
@@ -59,27 +109,27 @@
 @else
 <div class="row g-3 mb-3">
     <div class="col-6 col-md-3">
-        <div class="stat-card">
+        <div class="stat-card live-stat">
             <div class="stat-label">Total Punches</div>
             <div class="stat-value">{{ number_format($todayStats['total'] ?? 0) }}</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="stat-card">
+        <div class="stat-card live-stat">
             <div class="stat-label">Today</div>
             <div class="stat-value">{{ $todayStats['total'] ?? 0 }}</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="stat-label"><i class="bi bi-box-arrow-in-right text-success"></i> IN</div>
-            <div class="stat-value text-success">{{ $todayStats['in'] ?? 0 }}</div>
+        <div class="stat-card live-stat">
+            <div class="stat-label"><i class="bi bi-box-arrow-in-right"></i> IN</div>
+            <div class="stat-value">{{ $todayStats['in'] ?? 0 }}</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="stat-label"><i class="bi bi-box-arrow-right text-danger"></i> OUT</div>
-            <div class="stat-value text-danger">{{ $todayStats['out'] ?? 0 }}</div>
+        <div class="stat-card live-stat">
+            <div class="stat-label"><i class="bi bi-box-arrow-right"></i> OUT</div>
+            <div class="stat-value">{{ $todayStats['out'] ?? 0 }}</div>
         </div>
     </div>
 </div>
@@ -99,7 +149,7 @@
                 usort($dailyPairs, function($a, $b) { return strcmp($b['date'], $a['date']); });
                 $rendered = false;
             @endphp
-            <div class="card mb-3">
+            <div class="card mb-3 punch-card">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div>
                         @if($firstPunch->student_name)
@@ -111,7 +161,9 @@
                         @endif
                         <span class="text-muted ms-2">(Roll: {{ $rollNumber }})</span>
                         @if($firstPunch->class_course)
-                            <span class="text-muted ms-2">• {{ $firstPunch->class_course }}</span>
+                            <span class="punch-chip ms-2">
+                                <i class="bi bi-book"></i> {{ $firstPunch->class_course }}
+                            </span>
                         @endif
                     </div>
                     <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -298,11 +350,13 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Program / Class</label>
-                        <input type="text" class="form-control" id="csClass" name="class_course" value="Default Program">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Batch</label>
-                        <input type="text" class="form-control" id="csBatch" name="batch" value="Default Batch">
+                        <select class="form-select" id="csClass" name="class_course">
+                            @forelse($courses as $course)
+                                <option value="{{ $course->name }}">{{ $course->name }}</option>
+                            @empty
+                                <option value="Default Program">Default Program</option>
+                            @endforelse
+                        </select>
                     </div>
                 </form>
                 <div class="alert alert-info small">
@@ -332,10 +386,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const csFather = document.getElementById('csFather');
     const csPhone = document.getElementById('csPhone');
     const csClass = document.getElementById('csClass');
-    const csBatch = document.getElementById('csBatch');
     const csError = document.getElementById('csError');
     const csSuccess = document.getElementById('csSuccess');
     const csSaveBtn = document.getElementById('csSaveBtn');
+    const classOptions = @json($courses->pluck('name'));
+    const defaultClass = classOptions.length ? classOptions[0] : 'Default Program';
 
     document.querySelectorAll('.create-student-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
@@ -345,8 +400,7 @@ document.addEventListener('DOMContentLoaded', function() {
             csName.value = '';
             csFather.value = '';
             csPhone.value = '';
-            csClass.value = 'Default Program';
-            csBatch.value = 'Default Batch';
+            csClass.value = defaultClass;
             csError.classList.add('d-none');
             csSuccess.classList.add('d-none');
             createStudentModal.show();
@@ -362,8 +416,7 @@ document.addEventListener('DOMContentLoaded', function() {
             name: csName.value.trim(),
             father_name: csFather.value.trim(),
             parent_phone: csPhone.value.trim(),
-            class_course: csClass.value.trim() || 'Default Program',
-            batch: csBatch.value.trim() || 'Default Batch',
+            class_course: csClass.value.trim() || defaultClass,
             _token: '{{ csrf_token() }}'
         };
 

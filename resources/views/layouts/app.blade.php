@@ -114,6 +114,38 @@
             width: 16px;
             height: 16px;
         }
+        .nav-links {
+            flex-wrap: wrap;
+        }
+        .mobile-nav-toggle {
+            display: none;
+        }
+        @media (max-width: 768px) {
+            body { padding: 16px 12px; }
+            .container-wide { max-width: 100%; margin: 0 auto 24px auto; }
+            .nav-links {
+                gap: 8px;
+                flex-direction: column;
+                display: none;
+                width: 100%;
+                margin-top: 8px;
+            }
+            .nav-links.show {
+                display: flex !important;
+            }
+            .nav-links a, .nav-links .dropdown > a {
+                padding: 8px 4px;
+            }
+            .brand-card {
+                padding: 12px;
+            }
+            .mobile-nav-toggle {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 8px 10px;
+            }
+        }
         .form-control {
             background: #fff;
             border: 1px solid var(--brand-border);
@@ -308,6 +340,28 @@
                         <i class="bi bi-gear"></i> Settings
                     </a>
                 </div>
+                <button class="btn btn-outline-secondary btn-sm mobile-nav-toggle d-md-none" id="mobileNavToggle">
+                    <i class="bi bi-list"></i> Menu
+                </button>
+                <div class="nav-links gap-3 d-md-none" id="mobileNavLinks">
+                    <a href="{{ url('/attendance') }}" class="nav-link {{ request()->is('attendance*') && !request()->is('students*') ? 'active' : '' }}">
+                        <i class="bi bi-list-ul"></i> Live Attendance
+                    </a>
+                    <a href="{{ route('students.index') }}" class="nav-link {{ request()->is('students') ? 'active' : '' }}">
+                        <i class="bi bi-people"></i> All Students
+                    </a>
+                    @if(auth()->user()->isSuperAdmin())
+                        <a href="{{ route('courses.index') }}" class="nav-link {{ request()->is('students/courses*') ? 'active' : '' }}">
+                            <i class="bi bi-book"></i> Manage Classes
+                        </a>
+                    @endif
+                    <a href="{{ route('manual-attendance.index') }}" class="nav-link {{ request()->is('manual-attendance*') ? 'active' : '' }}">
+                        <i class="bi bi-pencil-square"></i> Manual Attendance
+                    </a>
+                    <a href="{{ url('/settings') }}" class="nav-link {{ request()->is('settings*') ? 'active' : '' }}">
+                        <i class="bi bi-gear"></i> Settings
+                    </a>
+                </div>
             </div>
             <div class="d-flex align-items-center gap-3">
                 @auth
@@ -343,6 +397,17 @@
     @yield('content')
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggle = document.getElementById('mobileNavToggle');
+        const links = document.getElementById('mobileNavLinks');
+        if (toggle && links) {
+            toggle.addEventListener('click', function() {
+                links.classList.toggle('show');
+            });
+        }
+    });
+</script>
 @stack('scripts')
 </body>
 </html>

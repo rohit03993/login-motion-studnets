@@ -12,7 +12,8 @@ class AdminUserSeeder extends Seeder
     {
         // Create super admin if doesn't exist
         User::firstOrCreate(
-            ['email' => 'admin@attendance.local'],
+            ['email' => '
+            '],
             [
                 'name' => 'Super Admin',
                 'password' => Hash::make('admin123'),

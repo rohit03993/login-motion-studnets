@@ -7,7 +7,7 @@
             <div class="section-title mb-1">
                 <i class="bi bi-pencil-square"></i> Manual Attendance Marking
             </div>
-            <div class="muted">Mark students as present or absent for a specific batch and date</div>
+            <div class="muted">Mark students as present or absent for a specific class and date</div>
         </div>
     </div>
 </div>
@@ -20,14 +20,14 @@
         </div>
         <div class="col-12 col-md-6">
             <label class="form-label"><i class="bi bi-funnel"></i> Class</label>
-            <select name="class" class="form-select" required>
-                <option value="">Select Class</option>
+            <select name="class" class="form-select">
+                <option value="ALL" {{ $classCourse === 'ALL' ? 'selected' : '' }}>All Classes</option>
                 @if($hasNoClass)
                     <option value="__no_class__" {{ $classCourse === '__no_class__' ? 'selected' : '' }}>
                         (No Class / Unassigned)
                     </option>
                 @endif
-                @foreach($classes as $cls)
+                @foreach((array)$classes as $cls)
                     <option value="{{ $cls }}" {{ $classCourse === $cls ? 'selected' : '' }}>
                         {{ $cls }}
                     </option>
@@ -188,7 +188,7 @@
     <div class="brand-card">
         <div class="text-center text-muted py-5">
             <i class="bi bi-calendar-check" style="font-size: 3rem;"></i>
-            <p class="mt-3 mb-0">Please select a batch and date to view attendance</p>
+            <p class="mt-3 mb-0">Please select a class (or All) and date to view attendance</p>
         </div>
     </div>
 @endif

@@ -169,11 +169,6 @@
                 @endforeach
             </select>
         </div>
-        <div class="col-6">
-            <label class="form-label">Batch</label>
-            <input type="text" name="batch" id="batchField" value="{{ old('batch', $student->batch) }}" class="form-control" placeholder="Batch" readonly>
-            <div class="form-text small">Auto-selected from the chosen class.</div>
-        </div>
         <div class="col-12 col-md-6">
             <label class="form-label">Primary Mobile (+91 auto)</label>
             <input type="text" name="parent_phone" value="{{ old('parent_phone', $student->parent_phone) }}" class="form-control" placeholder="10-digit or +91XXXXXXXXXX">
@@ -420,19 +415,6 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Class -> batch auto mapping
-    const classSelect = document.getElementById('classSelect');
-    const batchField = document.getElementById('batchField');
-    const courseBatchMap = @json($courses->mapWithKeys(fn($c) => [$c->name => ($c->batches->first()->name ?? 'Default Batch')]));
-    function syncBatch() {
-        if (classSelect && batchField) {
-            const cls = classSelect.value;
-            batchField.value = courseBatchMap[cls] || 'Default Batch';
-        }
-    }
-    classSelect?.addEventListener('change', syncBatch);
-    syncBatch();
-
     const editBtn = document.getElementById('editStudentBtn');
     const cancelBtn = document.getElementById('cancelEditBtn');
     const viewDiv = document.getElementById('studentInfoView');

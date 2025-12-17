@@ -44,8 +44,6 @@ class CourseController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:courses,name',
             'description' => 'nullable|string|max:1000',
-            'batch_name' => 'required|string|max:255|unique:batches,name',
-            'batch_description' => 'nullable|string|max:1000',
         ]);
 
         $course = Course::create([
@@ -54,15 +52,8 @@ class CourseController extends Controller
             'is_active' => true,
         ]);
 
-        Batch::create([
-            'name' => $validated['batch_name'],
-            'course_id' => $course->id,
-            'description' => $validated['batch_description'] ?? null,
-            'is_active' => true,
-        ]);
-
         return redirect()->route('courses.index')
-            ->with('success', 'Course and default batch created successfully.');
+            ->with('success', 'Class created successfully.');
     }
 
     /**
