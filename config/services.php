@@ -41,6 +41,8 @@ return [
         'template' => env('AISENSY_TEMPLATE', 'ATTENDANCE_ALERT'),
         'template_in' => env('AISENSY_TEMPLATE_IN', env('AISENSY_TEMPLATE', 'ATTENDANCE_ALERT')),
         'template_out' => env('AISENSY_TEMPLATE_OUT', env('AISENSY_TEMPLATE', 'ATTENDANCE_ALERT')),
+        'template_manual_in' => env('AISENSY_TEMPLATE_MANUAL_IN', env('AISENSY_TEMPLATE_IN', env('AISENSY_TEMPLATE', 'ATTENDANCE_ALERT'))),
+        'template_manual_out' => env('AISENSY_TEMPLATE_MANUAL_OUT', env('AISENSY_TEMPLATE_OUT', env('AISENSY_TEMPLATE', 'ATTENDANCE_ALERT'))),
     ],
 
 ];

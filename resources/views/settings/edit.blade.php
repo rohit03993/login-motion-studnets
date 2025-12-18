@@ -3,7 +3,7 @@
 @section('content')
 <div class="brand-card mb-3">
     <div class="section-title">Aisensy Templates</div>
-    <div class="muted">API key stays in .env for security. Set URL and templates (IN/OUT) here.</div>
+    <div class="muted">API key stays in .env for security. Set URL and templates here. Automatic templates for machine punches, Manual templates for staff-marked attendance.</div>
     @if(session('status'))
         <div class="alert alert-success mt-2">{{ session('status') }}</div>
     @endif
@@ -14,15 +14,35 @@
             <input type="text" name="aisensy_url" value="{{ old('aisensy_url', $aisensy_url) }}" class="form-control" required>
             @error('aisensy_url') <div class="text-danger small">{{ $message }}</div> @enderror
         </div>
-        <div class="col-12 col-md-6">
-            <label class="form-label">Template (IN)</label>
-            <input type="text" name="aisensy_template_in" value="{{ old('aisensy_template_in', $aisensy_template_in) }}" class="form-control" required>
-            @error('aisensy_template_in') <div class="text-danger small">{{ $message }}</div> @enderror
+        <div class="col-12">
+            <h6 class="mt-3 mb-2"><i class="bi bi-clock"></i> Automatic Templates (Machine Punches)</h6>
         </div>
         <div class="col-12 col-md-6">
-            <label class="form-label">Template (OUT)</label>
+            <label class="form-label">Template (Automatic IN)</label>
+            <input type="text" name="aisensy_template_in" value="{{ old('aisensy_template_in', $aisensy_template_in) }}" class="form-control" required>
+            @error('aisensy_template_in') <div class="text-danger small">{{ $message }}</div> @enderror
+            <div class="form-text small">Used for automatic machine punches (IN)</div>
+        </div>
+        <div class="col-12 col-md-6">
+            <label class="form-label">Template (Automatic OUT)</label>
             <input type="text" name="aisensy_template_out" value="{{ old('aisensy_template_out', $aisensy_template_out) }}" class="form-control" required>
             @error('aisensy_template_out') <div class="text-danger small">{{ $message }}</div> @enderror
+            <div class="form-text small">Used for automatic machine punches (OUT)</div>
+        </div>
+        <div class="col-12">
+            <h6 class="mt-3 mb-2"><i class="bi bi-pencil"></i> Manual Templates (Staff-Marked Attendance)</h6>
+        </div>
+        <div class="col-12 col-md-6">
+            <label class="form-label">Template (Manual IN)</label>
+            <input type="text" name="aisensy_template_manual_in" value="{{ old('aisensy_template_manual_in', $aisensy_template_manual_in ?? '') }}" class="form-control" required>
+            @error('aisensy_template_manual_in') <div class="text-danger small">{{ $message }}</div> @enderror
+            <div class="form-text small">Used when staff manually marks attendance (IN)</div>
+        </div>
+        <div class="col-12 col-md-6">
+            <label class="form-label">Template (Manual OUT)</label>
+            <input type="text" name="aisensy_template_manual_out" value="{{ old('aisensy_template_manual_out', $aisensy_template_manual_out ?? '') }}" class="form-control" required>
+            @error('aisensy_template_manual_out') <div class="text-danger small">{{ $message }}</div> @enderror
+            <div class="form-text small">Used when staff manually marks attendance (OUT)</div>
         </div>
         <div class="col-12">
             <button class="btn btn-primary">Save</button>

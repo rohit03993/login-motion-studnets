@@ -81,6 +81,12 @@
             </div>
         </div>
         <div class="col-12 col-md-2 mt-2">
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" name="overwrite_mode" id="overwriteMode" value="1">
+                <label class="form-check-label small" for="overwriteMode" title="If checked, overwrites all fields. If unchecked, only updates provided fields and preserves existing class/batch.">
+                    Overwrite all fields
+                </label>
+            </div>
             <button type="submit" class="btn btn-success w-100">
                 <i class="bi bi-cloud-arrow-up"></i> Upload
             </button>

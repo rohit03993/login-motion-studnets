@@ -233,9 +233,10 @@ class ManualAttendanceController extends Controller
             (string) $date,
         ];
 
+        // Use manual-specific templates for manual attendance
         $tpl = $state === 'IN'
-            ? \App\Models\Setting::get('aisensy_template_in', config('services.aisensy.template_in'))
-            : \App\Models\Setting::get('aisensy_template_out', config('services.aisensy.template_out'));
+            ? \App\Models\Setting::get('aisensy_template_manual_in', config('services.aisensy.template_manual_in'))
+            : \App\Models\Setting::get('aisensy_template_manual_out', config('services.aisensy.template_manual_out'));
 
         $sentCount = 0;
         $results = [];
