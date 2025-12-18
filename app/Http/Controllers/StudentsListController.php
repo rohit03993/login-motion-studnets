@@ -32,6 +32,8 @@ class StudentsListController extends Controller
         
         // Check if punch_logs table exists
         $punchLogsExists = DB::select("SHOW TABLES LIKE 'punch_logs'");
+        // Check if employees table exists
+        $employeesTableExists = DB::select("SHOW TABLES LIKE 'employees'");
         
         // Get all unique batches for filter dropdown (from students table)
         $batches = Student::whereNotNull('batch')
@@ -70,8 +72,15 @@ class StudentsListController extends Controller
             }
 
             $base = DB::query()->fromSub($idsQuery, 'ids')
-                ->leftJoin('students as s', 's.roll_number', '=', 'ids.roll_number')
-                ->select(
+                ->leftJoin('students as s', 's.roll_number', '=', 'ids.roll_number');
+            
+            // Exclude employees if employees table exists
+            if (!empty($employeesTableExists)) {
+                $base->leftJoin('employees as e', 'e.roll_number', '=', 'ids.roll_number')
+                     ->whereNull('e.roll_number'); // Exclude employees - only show students
+            }
+            
+            $base->select(
                     'ids.roll_number',
                     's.name',
                     's.father_name',
@@ -153,7 +162,15 @@ class StudentsListController extends Controller
         })->exists();
 
         // Base query (no punch logs path)
+        // Exclude employees - ensure roll_number doesn't exist in employees table
+        $employeesTableExists = DB::select("SHOW TABLES LIKE 'employees'");
         $query = Student::query();
+        if (!empty($employeesTableExists)) {
+            $employeeRollNumbers = DB::table('employees')->pluck('roll_number')->toArray();
+            if (!empty($employeeRollNumbers)) {
+                $query->whereNotIn('roll_number', $employeeRollNumbers);
+            }
+        }
         if (!$isSuper) {
             if (empty($allowedClasses)) {
                 $query->whereRaw('1=0');
@@ -200,6 +217,7 @@ class StudentsListController extends Controller
             'map_name' => 'required|string',
             'map_father' => 'nullable|string',
             'map_phone' => 'nullable|string',
+            'overwrite_mode' => 'nullable|boolean',
         ]);
 
         $file = $validated['file'];
@@ -219,27 +237,75 @@ class StudentsListController extends Controller
         $mapName = $validated['map_name'];
         $mapFather = $validated['map_father'] ?? null;
         $mapPhone = $validated['map_phone'] ?? null;
+        $overwriteMode = $request->boolean('overwrite_mode', false);
 
         $this->ensureDefaultBucket();
 
         $created = 0;
+        $updated = 0;
         foreach ($rows as $row) {
             $roll = trim((string) ($row[$mapRoll] ?? ''));
             if ($roll === '') {
                 continue;
             }
 
+            $isNew = !Student::where('roll_number', $roll)->exists();
             $student = Student::firstOrNew(['roll_number' => $roll]);
             $student->roll_number = $roll;
-            $student->name = $row[$mapName] ?? null;
-            $student->father_name = $mapFather ? ($row[$mapFather] ?? null) : null;
-            $student->class_course = self::DEFAULT_COURSE;
-            $student->batch = self::DEFAULT_BATCH;
-            $student->parent_phone = $mapPhone ? $this->normalizeIndianPhone($row[$mapPhone] ?? null) : null;
-            $student->whatsapp_send_to = 'primary';
-            $student->alerts_enabled = true;
+            
+            // Name: always update if provided (required field)
+            $nameValue = trim((string) ($row[$mapName] ?? ''));
+            if ($nameValue !== '') {
+                $student->name = $nameValue;
+            } elseif ($overwriteMode && $isNew) {
+                $student->name = null;
+            }
+            
+            // Father name: update only if provided or overwrite mode
+            if ($mapFather) {
+                $fatherValue = trim((string) ($row[$mapFather] ?? ''));
+                if ($fatherValue !== '') {
+                    $student->father_name = $fatherValue;
+                } elseif ($overwriteMode) {
+                    $student->father_name = null;
+                }
+                // else: preserve existing value
+            }
+            
+            // Class/Batch: preserve existing unless overwrite mode or new student
+            if ($overwriteMode || $isNew) {
+                $student->class_course = self::DEFAULT_COURSE;
+                $student->batch = self::DEFAULT_BATCH;
+            }
+            // else: preserve existing class/batch
+            
+            // Phone: normalize and update only if provided or overwrite mode
+            if ($mapPhone) {
+                $phoneValue = trim((string) ($row[$mapPhone] ?? ''));
+                if ($phoneValue !== '') {
+                    $normalized = $this->normalizeIndianPhone($phoneValue);
+                    if ($normalized) {
+                        $student->parent_phone = $normalized;
+                    }
+                } elseif ($overwriteMode) {
+                    $student->parent_phone = null;
+                }
+                // else: preserve existing phone
+            }
+            
+            // Set defaults only for new students
+            if ($isNew) {
+                $student->whatsapp_send_to = 'primary';
+                $student->alerts_enabled = true;
+            }
+            // else: preserve existing whatsapp_send_to and alerts_enabled
+            
             $student->save();
-            $created++;
+            if ($isNew) {
+                $created++;
+            } else {
+                $updated++;
+            }
         }
 
         // Store roster with mapping for future auto-creation
@@ -257,7 +323,17 @@ class StudentsListController extends Controller
             ],
         ]);
 
-        return back()->with('success', "Imported/updated {$created} student(s). All placed in default bucket.");
+        $message = "Imported {$created} new student(s)";
+        if ($updated > 0) {
+            $message .= ", updated {$updated} existing student(s)";
+        }
+        if ($overwriteMode) {
+            $message .= ". All fields overwritten.";
+        } else {
+            $message .= ". Existing class/batch preserved for existing students.";
+        }
+        
+        return back()->with('success', $message);
     }
 
     /**
@@ -359,14 +435,27 @@ class StudentsListController extends Controller
             return null;
         }
 
+        // If already has +91 prefix, return as is (after validation)
+        if (str_starts_with($raw, '+91')) {
+            $digits = preg_replace('/\D+/', '', $raw);
+            if (strlen($digits) === 12) {
+                return $raw; // Already correct format
+            }
+        }
+
         $digits = preg_replace('/\D+/', '', $raw);
 
+        // 10-digit local number
         if (strlen($digits) === 10) {
             return '+91' . $digits;
         }
+        
+        // 12-digit with leading 91
         if (strlen($digits) === 12 && str_starts_with($digits, '91')) {
             return '+' . $digits;
         }
+        
+        // 13-digit captured when input was +91XXXXXXXXXX (non-digits stripped)
         if (strlen($digits) === 13 && str_starts_with($digits, '091')) {
             return '+' . substr($digits, 1);
         }
