@@ -356,14 +356,14 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Create Student</h5>
+                <h5 class="modal-title" id="csModalTitle">Create Student</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <form id="createStudentForm">
                     @csrf
                     <div class="mb-3">
-                        <label class="form-label">Roll Number</label>
+                        <label class="form-label" id="csRollLabel">Roll Number</label>
                         <input type="text" class="form-control" id="csRoll" name="roll_number" readonly>
                     </div>
                     <div class="mb-3">
@@ -400,7 +400,7 @@
                         </select>
                     </div>
                 </form>
-                <div class="alert alert-info small">
+                <div class="alert alert-info small" id="csInfoText">
                     The student will be created and mapped to the roll number so future punches display their details.
                 </div>
                 <div class="alert alert-danger d-none" id="csError"></div>
@@ -437,13 +437,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const classOptions = @json($courses->pluck('name'));
     const defaultClass = classOptions.length ? classOptions[0] : 'Default Program';
 
+    const csModalTitle = document.getElementById('csModalTitle');
+    const csRollLabel = document.getElementById('csRollLabel');
+    const csInfoText = document.getElementById('csInfoText');
+
     function setModeEmployee(isEmployee) {
         if (isEmployee) {
             studentOnly.forEach(el => el.classList.add('d-none'));
             employeeOnly.forEach(el => el.classList.remove('d-none'));
+            csModalTitle.textContent = 'Create Employee';
+            csRollLabel.textContent = 'Employee ID';
+            csInfoText.textContent = 'The employee will be created and mapped to the employee ID so future punches display their details.';
         } else {
             studentOnly.forEach(el => el.classList.remove('d-none'));
             employeeOnly.forEach(el => el.classList.add('d-none'));
+            csModalTitle.textContent = 'Create Student';
+            csRollLabel.textContent = 'Roll Number';
+            csInfoText.textContent = 'The student will be created and mapped to the roll number so future punches display their details.';
         }
         csIsEmployee.checked = isEmployee;
     }
@@ -489,7 +499,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (!payload.roll_number || !payload.name) {
-            csError.textContent = 'Roll number and name are required.';
+            const idLabel = asEmployee ? 'Employee ID' : 'Roll number';
+            csError.textContent = idLabel + ' and name are required.';
             csError.classList.remove('d-none');
             return;
         }
