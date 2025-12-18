@@ -71,6 +71,7 @@ class StudentsListController extends Controller
                 $punchesUnified = $punchesUnified->unionAll($punchesManual);
             }
 
+
             $base = DB::query()->fromSub($idsQuery, 'ids')
                 ->leftJoin('students as s', 's.roll_number', '=', 'ids.roll_number');
             

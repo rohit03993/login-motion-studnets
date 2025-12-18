@@ -45,6 +45,24 @@
             <div class="form-text small">Used when staff manually marks attendance (OUT)</div>
         </div>
         <div class="col-12">
+            <h6 class="mt-3 mb-2"><i class="bi bi-clock-history"></i> Auto-Out Settings</h6>
+        </div>
+        <div class="col-12">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="auto_out_enabled" id="autoOutEnabled" value="1" {{ old('auto_out_enabled', $auto_out_enabled ?? '1') == '1' ? 'checked' : '' }}>
+                <label class="form-check-label" for="autoOutEnabled">
+                    Enable automatic OUT time for incomplete pairs
+                </label>
+            </div>
+            <div class="form-text small">If enabled, students with IN but no OUT will automatically get an OUT time added. If disabled, incomplete pairs will remain as IN only.</div>
+        </div>
+        <div class="col-12 col-md-6">
+            <label class="form-label">Auto-Out Time</label>
+            <input type="time" name="auto_out_time" value="{{ old('auto_out_time', $auto_out_time ?? '19:00') }}" class="form-control">
+            @error('auto_out_time') <div class="text-danger small">{{ $message }}</div> @enderror
+            <div class="form-text small">Time to automatically assign as OUT for incomplete pairs (past dates or current date after this time)</div>
+        </div>
+        <div class="col-12">
             <button class="btn btn-primary">Save</button>
         </div>
     </form>

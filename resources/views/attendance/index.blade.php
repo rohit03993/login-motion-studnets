@@ -108,26 +108,20 @@
     </div>
 @else
 <div class="row g-3 mb-3">
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md-4">
         <div class="stat-card live-stat">
             <div class="stat-label">Total Punches</div>
             <div class="stat-value">{{ number_format($todayStats['total'] ?? 0) }}</div>
         </div>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="stat-card live-stat">
-            <div class="stat-label">Today</div>
-            <div class="stat-value">{{ $todayStats['total'] ?? 0 }}</div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="stat-card live-stat">
+    <div class="col-6 col-md-4">
+        <div class="stat-card live-stat clickable-stat" data-filter-state="IN" style="cursor: pointer;" title="Click to filter students currently IN">
             <div class="stat-label"><i class="bi bi-box-arrow-in-right"></i> IN</div>
             <div class="stat-value">{{ $todayStats['in'] ?? 0 }}</div>
         </div>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="stat-card live-stat">
+    <div class="col-6 col-md-4">
+        <div class="stat-card live-stat clickable-stat" data-filter-state="OUT" style="cursor: pointer;" title="Click to filter students currently OUT">
             <div class="stat-label"><i class="bi bi-box-arrow-right"></i> OUT</div>
             <div class="stat-value">{{ $todayStats['out'] ?? 0 }}</div>
         </div>
@@ -537,6 +531,50 @@ document.addEventListener('DOMContentLoaded', function() {
             csSaveBtn.innerHTML = '<i class="bi bi-check-circle"></i> Save';
         });
     });
+    
+    // Make IN/OUT stat cards clickable to filter
+    document.querySelectorAll('.clickable-stat').forEach(card => {
+        card.addEventListener('click', function() {
+            const filterState = this.dataset.filterState;
+            const url = new URL(window.location.href);
+            
+            // Toggle filter: if already filtering by this state, remove filter; otherwise set it
+            const currentFilter = url.searchParams.get('filter_state');
+            if (currentFilter === filterState) {
+                url.searchParams.delete('filter_state');
+            } else {
+                url.searchParams.set('filter_state', filterState);
+            }
+            
+            // Reset to page 1 when filtering
+            url.searchParams.set('page', '1');
+            
+            window.location.href = url.toString();
+        });
+        
+        // Add hover effect
+        card.addEventListener('mouseenter', function() {
+            this.style.opacity = '0.8';
+            this.style.transform = 'scale(1.02)';
+            this.style.transition = 'all 0.2s ease';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.opacity = '1';
+            this.style.transform = 'scale(1)';
+        });
+    });
+    
+    // Highlight active filter
+    const currentFilter = new URLSearchParams(window.location.search).get('filter_state');
+    if (currentFilter) {
+        document.querySelectorAll('.clickable-stat').forEach(card => {
+            if (card.dataset.filterState === currentFilter) {
+                card.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.5)';
+                card.style.borderColor = '#007bff';
+            }
+        });
+    }
 });
 </script>
 @endpush

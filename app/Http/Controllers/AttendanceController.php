@@ -71,6 +71,7 @@ class AttendanceController extends Controller
         $name = $request->query('name');
         $today = Carbon::today()->format('Y-m-d');
         $date = $request->query('date');
+        $filterState = $request->query('filter_state'); // 'IN' or 'OUT' or null
         $isEmployeeView = $request->query('mode') === 'employee' || $request->routeIs('employees.attendance');
         $user = auth()->user();
         $isSuper = $user->isSuperAdmin();
@@ -246,6 +247,54 @@ class AttendanceController extends Controller
 
         // Group rows by employee_id for accordion display
         $groupedRows = $rows->getCollection()->groupBy('employee_id');
+        
+        // Filter by current state (IN/OUT) if filter_state parameter is provided
+        if ($filterState && in_array($filterState, ['IN', 'OUT'])) {
+            $filteredGroupedRows = collect([]);
+            foreach ($groupedRows as $rollNumber => $studentPunches) {
+                // Get all punches for this student on the selected date to determine current state
+                $mergedPunches = $this->getUnifiedPunches((string) $rollNumber, $dateFrom, $dateTo);
+                [$daily, $raw] = $this->computeInOut($mergedPunches);
+                
+                // Determine current state: check the last pair for the selected date
+                $currentState = null;
+                foreach ($daily as $dayData) {
+                    if ($dayData['date'] === $date) {
+                        $pairs = $dayData['pairs'] ?? [];
+                        if (!empty($pairs)) {
+                            $lastPair = end($pairs);
+                            // If last pair has IN but no OUT, student is currently IN
+                            if ($lastPair['in'] && !$lastPair['out']) {
+                                $currentState = 'IN';
+                            } elseif ($lastPair['in'] && $lastPair['out']) {
+                                $currentState = 'OUT';
+                            }
+                        }
+                    }
+                }
+                
+                // Only include if current state matches filter
+                if ($currentState === $filterState) {
+                    $filteredGroupedRows[$rollNumber] = $studentPunches;
+                }
+            }
+            $groupedRows = $filteredGroupedRows;
+            
+            // Re-paginate after filtering (create new paginator with filtered collection)
+            $filteredCollection = $groupedRows->flatten(1);
+            $currentPage = $request->query('page', 1);
+            $perPage = min((int) $request->query('per_page', 10), 100);
+            $total = $filteredCollection->count();
+            $items = $filteredCollection->forPage($currentPage, $perPage);
+            
+            $rows = new LengthAwarePaginator(
+                $items,
+                $total,
+                $perPage,
+                $currentPage,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+        }
         
         // Get WhatsApp logs for all students in the filtered range
         $whatsappQuery = DB::table('whatsapp_logs')
@@ -429,20 +478,78 @@ class AttendanceController extends Controller
             $processedCount++;
         }
         
-        // Calculate statistics based on actual accepted punches (matching what's displayed)
-        // This ensures stats match the table display by using the same logic as pairs computation
+        // Calculate statistics based on ALL matching students/employees (not just paginated)
+        // Rebuild query to get all unique roll_numbers matching the filters
+        $effectiveDateFrom = $dateFrom && $dateFrom > $minDate ? $dateFrom : $minDate;
+        
+        $statsMachine = DB::table('punch_logs')
+            ->selectRaw("employee_id, punch_date, punch_time")
+            ->where('punch_date', '>=', $effectiveDateFrom);
+        
+        if ($dateTo) {
+            $statsMachine->where('punch_date', '<=', $dateTo);
+        }
+        
+        $statsManual = null;
+        if ($manualExists) {
+            $statsManual = DB::table('manual_attendances')
+                ->selectRaw("roll_number as employee_id, punch_date, punch_time")
+                ->where('punch_date', '>=', $effectiveDateFrom);
+            
+            if ($dateTo) {
+                $statsManual->where('punch_date', '<=', $dateTo);
+            }
+        }
+        
+        $statsQuery = DB::query();
+        if ($statsManual) {
+            $statsUnion = $statsMachine->union($statsManual);
+            $statsQuery->fromSub($statsUnion, 'p');
+        } else {
+            $statsQuery->fromSub($statsMachine, 'p');
+        }
+        
+        $statsQuery
+            ->leftJoin('students as s', 's.roll_number', '=', 'p.employee_id')
+            ->leftJoin('employees as e', 'e.roll_number', '=', 'p.employee_id')
+            ->select('p.employee_id')
+            ->distinct();
+        
+        // Apply same filters as main query (except pagination)
+        if ($isEmployeeView) {
+            $statsQuery->whereNotNull('e.id');
+        } else {
+            if (!$isSuper && !empty($allowedClasses)) {
+                $statsQuery->whereIn('s.class_course', $allowedClasses);
+            } elseif (!$isSuper && empty($allowedClasses)) {
+                $statsQuery->whereRaw('1=0');
+            }
+        }
+        
+        if ($roll) {
+            $statsQuery->where('p.employee_id', $roll);
+        }
+        if ($name) {
+            $statsQuery->where(function ($q) use ($name) {
+                $q->where('s.name', 'like', "%{$name}%")
+                  ->orWhere('p.employee_id', 'like', "%{$name}%");
+            });
+        }
+        
+        // Get all unique roll_numbers matching filters
+        $allStudentRolls = $statsQuery->pluck('employee_id')->unique()->map(function($r) {
+            return (string) $r;
+        })->toArray();
+        
+        // Calculate stats from computed pairs for ALL matching students
         $totalPunches = 0;
         $inCount = 0;
         $outCount = 0;
         $durationByRoll = [];
         
-        // Get all unique students in the filtered results
-        $allStudentRolls = $groupedRows->keys()->toArray();
-        
-        // Calculate stats from computed pairs for each student
         foreach ($allStudentRolls as $rollNumber) {
             // Unified punches (machine + manual)
-            $mergedPunches = $this->getUnifiedPunches((string) $rollNumber, $dateFrom, $dateTo);
+            $mergedPunches = $this->getUnifiedPunches($rollNumber, $dateFrom, $dateTo);
             
             // Compute IN/OUT pairs using the same logic (NO CACHE - real-time data)
             [$daily, $raw] = $this->computeInOut($mergedPunches);
@@ -492,6 +599,7 @@ class AttendanceController extends Controller
                 'date' => $date,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
+                'filter_state' => $filterState,
             ],
             'todayStats' => [
                 'total' => $totalPunches,
@@ -1034,26 +1142,36 @@ class AttendanceController extends Controller
                 $lastAcceptedTime = $current;
             }
 
-            // Auto-add OUT at 7 PM for incomplete pairs (has IN but no OUT)
-            $today = Carbon::today()->format('Y-m-d');
-            $currentDate = Carbon::parse($date);
-            $isPastDate = $currentDate->format('Y-m-d') < $today;
-            $isToday = $currentDate->format('Y-m-d') === $today;
-            $isPast7PM = Carbon::now()->hour >= 19; // 7 PM = 19:00
+            // Auto-add OUT for incomplete pairs (has IN but no OUT) - if enabled in settings
+            $autoOutEnabled = \App\Models\Setting::get('auto_out_enabled', '1') === '1';
+            if ($autoOutEnabled) {
+                $autoOutTime = \App\Models\Setting::get('auto_out_time', '19:00'); // Default 7 PM
+                $today = Carbon::today()->format('Y-m-d');
+                $currentDate = Carbon::parse($date);
+                $isPastDate = $currentDate->format('Y-m-d') < $today;
+                $isToday = $currentDate->format('Y-m-d') === $today;
+                
+                // Parse auto-out time to check if current time is past it
+                $autoOutHour = (int) substr($autoOutTime, 0, 2);
+                $autoOutMinute = (int) substr($autoOutTime, 3, 2);
+                $isPastAutoOutTime = Carbon::now()->hour > $autoOutHour || 
+                                    (Carbon::now()->hour === $autoOutHour && Carbon::now()->minute >= $autoOutMinute);
 
-            foreach ($entries as &$entry) {
-                if ($entry['in'] && !$entry['out']) {
-                    // Auto-add OUT at 7 PM if:
-                    // 1. Date has passed (past date), OR
-                    // 2. Today and it's past 7 PM
-                    if ($isPastDate || ($isToday && $isPast7PM)) {
-                        $entry['out'] = '19:00:00';
-                        $entry['is_manual_out'] = $entry['is_manual_out'] ?? false;
-                        $entry['is_auto_out'] = true; // Flag to indicate auto-generated OUT
+                foreach ($entries as &$entry) {
+                    if ($entry['in'] && !$entry['out']) {
+                        // Auto-add OUT if:
+                        // 1. Date has passed (past date), OR
+                        // 2. Today and it's past the configured auto-out time
+                        if ($isPastDate || ($isToday && $isPastAutoOutTime)) {
+                            // Format time as HH:MM:SS
+                            $entry['out'] = $autoOutTime . ':00';
+                            $entry['is_manual_out'] = $entry['is_manual_out'] ?? false;
+                            $entry['is_auto_out'] = true; // Flag to indicate auto-generated OUT
+                        }
                     }
                 }
+                unset($entry); // Unset reference
             }
-            unset($entry); // Unset reference
 
             $daily[] = [
                 'date' => $date,
