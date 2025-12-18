@@ -55,9 +55,9 @@
     <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-md-between">
         <div>
             <div class="section-title mb-1">
-                <i class="bi bi-clock-history"></i> Live Attendance Dashboard
+                <i class="bi bi-clock-history"></i> {{ $isEmployeeView ? 'Employee Attendance' : 'Live Attendance Dashboard' }}
             </div>
-            <div class="muted">Real-time punches from EasyTimePro</div>
+            <div class="muted">{{ $isEmployeeView ? 'Real-time punches for employees' : 'Real-time punches from EasyTimePro' }}</div>
         </div>
         <div class="d-flex gap-2">
             <a class="btn btn-success" href="{{ url('/attendance/export') }}?{{ http_build_query(request()->query()) }}">
@@ -148,21 +148,34 @@
                 $dailyPairs = $studentPairs[$rollNumber] ?? [];
                 usort($dailyPairs, function($a, $b) { return strcmp($b['date'], $a['date']); });
                 $rendered = false;
+                $displayName = $firstPunch->student_name ?? $firstPunch->employee_name;
+                $isEmployee = !empty($firstPunch->employee_name) && empty($firstPunch->student_name);
             @endphp
             <div class="card mb-3 punch-card">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div>
-                        @if($firstPunch->student_name)
-                            <a href="{{ route('students.show', $rollNumber) }}" class="text-decoration-none text-dark fw-bold">
-                                {{ $firstPunch->student_name }}
-                            </a>
+                        @if($displayName)
+                            @if($firstPunch->student_name)
+                                <a href="{{ route('students.show', $rollNumber) }}" class="text-decoration-none text-dark fw-bold">
+                                    {{ $displayName }}
+                                </a>
+                            @else
+                                <span class="fw-bold text-dark">{{ $displayName }}</span>
+                            @endif
                         @else
                             <span class="fw-bold text-warning">Unmapped</span>
+                        @endif
+                        @if($isEmployee || $isEmployeeView)
+                            <span class="badge bg-dark ms-2" title="Employee">Employee</span>
                         @endif
                         <span class="text-muted ms-2">(Roll: {{ $rollNumber }})</span>
                         @if($firstPunch->class_course)
                             <span class="punch-chip ms-2">
                                 <i class="bi bi-book"></i> {{ $firstPunch->class_course }}
+                            </span>
+                        @elseif($firstPunch->employee_category)
+                            <span class="punch-chip ms-2">
+                                <i class="bi bi-briefcase"></i> {{ $firstPunch->employee_category === 'academic' ? 'Academic' : 'Non-academic' }}
                             </span>
                         @endif
                     </div>
@@ -174,12 +187,29 @@
                                 {{ $d['hours'] }}h {{ $d['minutes'] }}m
                             </span>
                         @endif
-                        @if(!$firstPunch->student_name)
+                        @if(!$firstPunch->student_name && !$firstPunch->employee_name)
                             <button type="button"
-                                    class="btn btn-sm btn-outline-primary create-student-btn"
+                                    class="btn btn-sm btn-outline-primary {{ $isEmployeeView ? 'd-none' : '' }} create-student-btn"
                                     data-roll="{{ $rollNumber }}">
                                 <i class="bi bi-person-plus"></i> Create student
                             </button>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-secondary create-employee-btn"
+                                    data-roll="{{ $rollNumber }}">
+                                <i class="bi bi-briefcase"></i> Create employee
+                            </button>
+                        @else
+                            @php
+                                $canMark = true;
+                                if(!$isEmployeeView) {
+                                    $canMark = empty($allowedClasses) || in_array($firstPunch->class_course, $allowedClasses);
+                                } else {
+                                    $canMark = $canViewEmployees;
+                                }
+                            @endphp
+                            @if(!$canMark)
+                                <span class="badge bg-secondary">No mark rights</span>
+                            @endif
                         @endif
                     </div>
                 </div>
@@ -348,7 +378,11 @@
                         <label class="form-label">Parent Mobile</label>
                         <input type="text" class="form-control" id="csPhone" name="parent_phone" placeholder="+91XXXXXXXXXX or 10-digit">
                     </div>
-                    <div class="mb-3">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="csIsEmployee">
+                        <label class="form-check-label" for="csIsEmployee">Create as Employee</label>
+                    </div>
+                    <div class="mb-3 student-only">
                         <label class="form-label">Program / Class</label>
                         <select class="form-select" id="csClass" name="class_course">
                             @forelse($courses as $course)
@@ -356,6 +390,13 @@
                             @empty
                                 <option value="Default Program">Default Program</option>
                             @endforelse
+                        </select>
+                    </div>
+                    <div class="mb-3 employee-only d-none">
+                        <label class="form-label">Category</label>
+                        <select class="form-select" id="csCategory" name="category">
+                            <option value="academic">Academic</option>
+                            <option value="non_academic">Non-academic</option>
                         </select>
                     </div>
                 </form>
@@ -386,39 +427,66 @@ document.addEventListener('DOMContentLoaded', function() {
     const csFather = document.getElementById('csFather');
     const csPhone = document.getElementById('csPhone');
     const csClass = document.getElementById('csClass');
+    const csCategory = document.getElementById('csCategory');
+    const csIsEmployee = document.getElementById('csIsEmployee');
+    const studentOnly = document.querySelectorAll('.student-only');
+    const employeeOnly = document.querySelectorAll('.employee-only');
     const csError = document.getElementById('csError');
     const csSuccess = document.getElementById('csSuccess');
     const csSaveBtn = document.getElementById('csSaveBtn');
     const classOptions = @json($courses->pluck('name'));
     const defaultClass = classOptions.length ? classOptions[0] : 'Default Program';
 
-    document.querySelectorAll('.create-student-btn').forEach(btn => {
+    function setModeEmployee(isEmployee) {
+        if (isEmployee) {
+            studentOnly.forEach(el => el.classList.add('d-none'));
+            employeeOnly.forEach(el => el.classList.remove('d-none'));
+        } else {
+            studentOnly.forEach(el => el.classList.remove('d-none'));
+            employeeOnly.forEach(el => el.classList.add('d-none'));
+        }
+        csIsEmployee.checked = isEmployee;
+    }
+
+    document.querySelectorAll('.create-student-btn, .create-employee-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
             const roll = this.dataset.roll || '';
+            const asEmployee = this.classList.contains('create-employee-btn');
             csRoll.value = roll;
             csName.value = '';
             csFather.value = '';
             csPhone.value = '';
             csClass.value = defaultClass;
+            csCategory.value = 'academic';
+            setModeEmployee(asEmployee);
             csError.classList.add('d-none');
             csSuccess.classList.add('d-none');
             createStudentModal.show();
         });
     });
 
+    csIsEmployee.addEventListener('change', function() {
+        setModeEmployee(this.checked);
+    });
+
     csSaveBtn.addEventListener('click', function() {
         csError.classList.add('d-none');
         csSuccess.classList.add('d-none');
 
+        const asEmployee = csIsEmployee.checked;
         const payload = {
             roll_number: csRoll.value.trim(),
             name: csName.value.trim(),
             father_name: csFather.value.trim(),
             parent_phone: csPhone.value.trim(),
-            class_course: csClass.value.trim() || defaultClass,
             _token: '{{ csrf_token() }}'
         };
+        if (asEmployee) {
+            payload.category = csCategory.value || 'academic';
+        } else {
+            payload.class_course = csClass.value.trim() || defaultClass;
+        }
 
         if (!payload.roll_number || !payload.name) {
             csError.textContent = 'Roll number and name are required.';
@@ -429,7 +497,9 @@ document.addEventListener('DOMContentLoaded', function() {
         csSaveBtn.disabled = true;
         csSaveBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
 
-        fetch('{{ route('students.create-from-punch') }}', {
+        const endpoint = asEmployee ? '{{ route('employees.create-from-punch') }}' : '{{ route('students.create-from-punch') }}';
+
+        fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',

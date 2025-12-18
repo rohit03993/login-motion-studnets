@@ -26,6 +26,8 @@ class ManualAttendanceController extends Controller
     {
         $classCourse = $request->query('class', 'ALL');
         $date = $request->query('date', Carbon::today()->format('Y-m-d'));
+        $user = auth()->user();
+        $isSuper = $user->isSuperAdmin();
         
         // Enforce minimum attendance date
         if ($date < self::MIN_ATTENDANCE_DATE) {
@@ -49,6 +51,11 @@ class ManualAttendanceController extends Controller
             $classes = ['Default Program'];
         }
         array_unshift($classes, 'ALL');
+        if (!$isSuper) {
+            $allowed = \App\Models\UserClassPermission::where('user_id', $user->id)
+                ->pluck('class_name')->unique()->values()->toArray();
+            $classes = array_values(array_intersect($classes, array_merge(['ALL'], $allowed)));
+        }
         if (!is_array($classes)) {
             $classes = [$classes];
         }
@@ -73,6 +80,9 @@ class ManualAttendanceController extends Controller
                 });
             } else {
                 $query->where('class_course', $classCourse);
+            }
+            if (!$isSuper) {
+                $query->whereIn('class_course', $allowed ?? []);
             }
             
             $allStudents = $query->orderBy('roll_number')->get();

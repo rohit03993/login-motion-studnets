@@ -23,6 +23,7 @@ class User extends Authenticatable
         'password',
         'role',
         'password_changed_at',
+        'can_view_employees',
     ];
 
     /**
@@ -46,6 +47,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password_changed_at' => 'datetime',
             'password' => 'hashed',
+            'can_view_employees' => 'boolean',
         ];
     }
 
@@ -63,5 +65,10 @@ class User extends Authenticatable
     public function isStaff(): bool
     {
         return $this->role === 'staff';
+    }
+
+    public function classPermissions()
+    {
+        return $this->hasMany(UserClassPermission::class);
     }
 }

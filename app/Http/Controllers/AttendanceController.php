@@ -71,6 +71,18 @@ class AttendanceController extends Controller
         $name = $request->query('name');
         $today = Carbon::today()->format('Y-m-d');
         $date = $request->query('date');
+        $isEmployeeView = $request->query('mode') === 'employee' || $request->routeIs('employees.attendance');
+        $user = auth()->user();
+        $isSuper = $user->isSuperAdmin();
+        $allowedClasses = [];
+        $canViewEmployees = $isSuper ? true : (bool) ($user->can_view_employees ?? false);
+        if (!$isSuper) {
+            $allowedClasses = \App\Models\UserClassPermission::where('user_id', $user->id)
+                ->pluck('class_name')
+                ->unique()
+                ->values()
+                ->toArray();
+        }
         
         // Single-date filter: default today, clamp to today (no future) and min date
         if (!$date) {
@@ -140,6 +152,7 @@ class AttendanceController extends Controller
 
         $query
             ->leftJoin('students as s', 's.roll_number', '=', 'p.employee_id')
+            ->leftJoin('employees as e', 'e.roll_number', '=', 'p.employee_id')
             ->leftJoin('whatsapp_logs as w', function($join) {
                 $join->on('w.roll_number', '=', 'p.employee_id')
                      ->on('w.punch_date', '=', 'p.punch_date')
@@ -156,6 +169,8 @@ class AttendanceController extends Controller
                 's.name as student_name',
                 's.class_course',
                 's.parent_phone',
+                'e.name as employee_name',
+                'e.category as employee_category',
                 'w.status as whatsapp_status',
                 'w.error as whatsapp_error',
                 'w.sent_at as whatsapp_sent_at',
@@ -163,6 +178,20 @@ class AttendanceController extends Controller
             )
             ->orderBy('p.punch_date', 'desc')
             ->orderBy('p.punch_time', 'desc');
+
+        if ($isEmployeeView) {
+            if (!$canViewEmployees) {
+                abort(403, 'Not authorized for employee attendance');
+            }
+            $query->whereNotNull('e.id');
+        } else {
+            if (!$isSuper && !empty($allowedClasses)) {
+                $query->whereIn('s.class_course', $allowedClasses);
+            } elseif (!$isSuper && empty($allowedClasses)) {
+                // no classes assigned -> show none
+                $query->whereRaw('1=0');
+            }
+        }
 
         // Always enforce minimum date
         $query->where('p.punch_date', '>=', self::MIN_ATTENDANCE_DATE);
@@ -187,26 +216,6 @@ class AttendanceController extends Controller
         // Default to 10 per page; allow override up to 100
         $perPage = min((int) $request->query('per_page', 10), 100);
         $rows = $query->paginate($perPage)->appends($request->query());
-
-        // Auto-bucket unmapped rolls into Default Program
-        $unmappedRolls = $rows->getCollection()
-            ->filter(fn($row) => empty($row->student_name))
-            ->pluck('employee_id')
-            ->unique()
-            ->values();
-        if ($unmappedRolls->isNotEmpty()) {
-            $this->ensureDefaultProgram();
-            foreach ($unmappedRolls as $rollNumber) {
-                Student::firstOrCreate(
-                    ['roll_number' => (string)$rollNumber],
-                    [
-                        'class_course' => self::DEFAULT_PROGRAM,
-                        'alerts_enabled' => true,
-                        'whatsapp_send_to' => 'primary',
-                    ]
-                );
-            }
-        }
 
         // Compute IN/OUT states for each row and match WhatsApp status
         $rows->getCollection()->transform(function ($row) {
@@ -474,6 +483,9 @@ class AttendanceController extends Controller
             'groupedRows' => $groupedRows,
             'studentPairs' => $studentPairs,
             'courses' => $courses,
+            'isEmployeeView' => $isEmployeeView,
+            'allowedClasses' => $allowedClasses,
+            'canViewEmployees' => $canViewEmployees,
             'filters' => [
                 'roll' => $roll,
                 'name' => $name,

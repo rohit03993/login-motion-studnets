@@ -25,6 +25,10 @@ class StudentsListController extends Controller
     {
         $search = $request->query('search');
         $batch = $request->query('batch');
+        $user = auth()->user();
+        $isSuper = method_exists($user, 'isSuperAdmin') ? $user->isSuperAdmin() : false;
+        $allowedClasses = $isSuper ? [] : \App\Models\UserClassPermission::where('user_id', $user->id)
+            ->pluck('class_name')->unique()->values()->toArray();
         
         // Check if punch_logs table exists
         $punchLogsExists = DB::select("SHOW TABLES LIKE 'punch_logs'");
@@ -98,6 +102,15 @@ class StudentsListController extends Controller
                       ->limit(1);
                 }, 'last_punch_time');
 
+            // Permissions filter (classes)
+            if (!$isSuper) {
+                if (empty($allowedClasses)) {
+                    $base->whereRaw('1=0');
+                } else {
+                    $base->whereIn('s.class_course', $allowedClasses);
+                }
+            }
+
             // Filters
             if ($batch) {
                 if ($batch === '__no_batch__') {
@@ -138,6 +151,16 @@ class StudentsListController extends Controller
         $hasNoBatch = Student::where(function($q) {
             $q->whereNull('batch')->orWhere('batch', '');
         })->exists();
+
+        // Base query (no punch logs path)
+        $query = Student::query();
+        if (!$isSuper) {
+            if (empty($allowedClasses)) {
+                $query->whereRaw('1=0');
+            } else {
+                $query->whereIn('class_course', $allowedClasses);
+            }
+        }
 
         // Apply batch filter
         if ($batch) {

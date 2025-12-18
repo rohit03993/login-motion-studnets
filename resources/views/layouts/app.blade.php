@@ -312,6 +312,9 @@
                     <i class="bi bi-clock-history"></i>
                     <span>Attendance CRM</span>
                 </a>
+                @php
+                    $canViewEmployees = auth()->user()->isSuperAdmin() || (auth()->user()->can_view_employees ?? false);
+                @endphp
                 <div class="nav-links d-none d-md-flex gap-3">
                     <a href="{{ url('/attendance') }}" class="nav-link {{ request()->is('attendance*') && !request()->is('students*') ? 'active' : '' }}">
                         <i class="bi bi-list-ul"></i> Live Attendance
@@ -329,10 +332,21 @@
                                 <li><a class="dropdown-item" href="{{ route('courses.index') }}">
                                     <i class="bi bi-book"></i> Manage Classes
                                 </a></li>
+                                <li><a class="dropdown-item" href="{{ route('employees.index') }}">
+                                    <i class="bi bi-people-fill"></i> Manage Employees
+                                </a></li>
+                                <li><a class="dropdown-item" href="{{ route('permissions.edit') }}">
+                                    <i class="bi bi-shield-lock"></i> Staff Permissions
+                                </a></li>
                                 {{-- Batches menu hidden; batches created via class flow --}}
                             @endif
                         </ul>
                     </div>
+                    @if($canViewEmployees)
+                        <a href="{{ route('employees.attendance') }}" class="nav-link {{ request()->routeIs('employees.attendance') ? 'active' : '' }}">
+                            <i class="bi bi-briefcase"></i> Employee Attendance
+                        </a>
+                    @endif
                     <a href="{{ route('manual-attendance.index') }}" class="nav-link {{ request()->is('manual-attendance*') ? 'active' : '' }}">
                         <i class="bi bi-pencil-square"></i> Manual Attendance
                     </a>
@@ -353,6 +367,17 @@
                     @if(auth()->user()->isSuperAdmin())
                         <a href="{{ route('courses.index') }}" class="nav-link {{ request()->is('students/courses*') ? 'active' : '' }}">
                             <i class="bi bi-book"></i> Manage Classes
+                        </a>
+                        <a href="{{ route('employees.index') }}" class="nav-link {{ request()->is('employees*') ? 'active' : '' }}">
+                            <i class="bi bi-people-fill"></i> Manage Employees
+                        </a>
+                        <a href="{{ route('permissions.edit') }}" class="nav-link {{ request()->routeIs('permissions.*') ? 'active' : '' }}">
+                            <i class="bi bi-shield-lock"></i> Staff Permissions
+                        </a>
+                    @endif
+                    @if($canViewEmployees)
+                        <a href="{{ route('employees.attendance') }}" class="nav-link {{ request()->routeIs('employees.attendance') ? 'active' : '' }}">
+                            <i class="bi bi-briefcase"></i> Employee Attendance
                         </a>
                     @endif
                     <a href="{{ route('manual-attendance.index') }}" class="nav-link {{ request()->is('manual-attendance*') ? 'active' : '' }}">

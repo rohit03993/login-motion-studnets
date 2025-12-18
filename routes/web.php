@@ -13,6 +13,8 @@ use App\Http\Controllers\ManualAttendanceController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\BatchController;
 use App\Http\Controllers\DataAdminController;
+use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\UserPermissionController;
 
 // Authentication Routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -23,6 +25,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::middleware('auth')->group(function () {
     Route::get('/', [AttendanceController::class, 'index']);
     Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');
+    Route::get('/employees/attendance', [AttendanceController::class, 'index'])->name('employees.attendance');
     Route::get('/attendance/export', [AttendanceController::class, 'export']);
     Route::get('/attendance/check-updates', [AttendanceController::class, 'checkUpdates'])->name('attendance.check-updates');
 
@@ -59,6 +62,15 @@ Route::middleware('auth')->group(function () {
         Route::post('/import', [StudentsListController::class, 'import'])->name('import');
     });
 
+    // Employees management (Super Admin)
+    Route::prefix('employees')->name('employees.')->middleware('superadmin')->group(function () {
+        Route::get('/', [EmployeeController::class, 'index'])->name('index');
+        Route::post('/', [EmployeeController::class, 'store'])->name('store');
+    });
+
+    // Quick-create employee from unmapped punch (all authenticated)
+    Route::post('/employees/create-from-punch', [EmployeeController::class, 'createFromPunch'])->name('employees.create-from-punch');
+
     // Data admin (Super Admin)
     Route::prefix('admin/data')->middleware('superadmin')->name('data-admin.')->group(function () {
         Route::post('/reset-students', [DataAdminController::class, 'reset'])->name('reset-students');
@@ -91,6 +103,10 @@ Route::middleware('auth')->group(function () {
         Route::match(['put', 'patch'], '/{user}', [UserController::class, 'update'])->name('update');
         Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
     });
+
+    // Staff permissions (Super Admin)
+    Route::get('/permissions', [UserPermissionController::class, 'edit'])->name('permissions.edit');
+    Route::post('/permissions', [UserPermissionController::class, 'update'])->name('permissions.update');
 
     // Profile Management (All authenticated users)
     Route::prefix('profile')->name('profile.')->group(function () {
