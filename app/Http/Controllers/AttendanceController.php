@@ -213,13 +213,11 @@ class AttendanceController extends Controller
             $query->where('p.punch_date', '<=', $dateTo);
         }
 
-        // Optimize pagination - limit to reasonable page size
-        // Default to 10 per page; allow override up to 100
-        $perPage = min((int) $request->query('per_page', 10), 100);
-        $rows = $query->paginate($perPage)->appends($request->query());
+        // Get all matching rows first (no pagination yet)
+        $allRows = $query->get();
 
         // Compute IN/OUT states for each row and match WhatsApp status
-        $rows->getCollection()->transform(function ($row) {
+        $allRows->transform(function ($row) {
             $row->computed_state = $this->computeStateForPunch(
                 (string) $row->employee_id, 
                 (string) $row->punch_date, 
@@ -246,12 +244,31 @@ class AttendanceController extends Controller
         });
 
         // Group rows by employee_id for accordion display
-        $groupedRows = $rows->getCollection()->groupBy('employee_id');
+        $allGroupedRows = $allRows->groupBy('employee_id');
+        
+        // Paginate by student/employee groups (not individual punches)
+        $perPage = min((int) $request->query('per_page', 10), 100);
+        $currentPage = $request->query('page', 1);
+        $totalStudents = $allGroupedRows->count();
+        
+        // Get the students for current page
+        $groupedRows = $allGroupedRows->forPage($currentPage, $perPage);
+        
+        // Create paginator for display
+        // Note: total() shows punch records count, but pagination is based on student groups
+        // This ensures "X total records" displays correctly
+        $rows = new LengthAwarePaginator(
+            $allRows, // All rows for reference
+            $allRows->count(), // Total punch records (for "X total records" display)
+            $perPage,
+            $currentPage,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
         
         // Filter by current state (IN/OUT) if filter_state parameter is provided
         if ($filterState && in_array($filterState, ['IN', 'OUT'])) {
             $filteredGroupedRows = collect([]);
-            foreach ($groupedRows as $rollNumber => $studentPunches) {
+            foreach ($allGroupedRows as $rollNumber => $studentPunches) {
                 // Get all punches for this student on the selected date to determine current state
                 $mergedPunches = $this->getUnifiedPunches((string) $rollNumber, $dateFrom, $dateTo);
                 [$daily, $raw] = $this->computeInOut($mergedPunches);
@@ -278,18 +295,17 @@ class AttendanceController extends Controller
                     $filteredGroupedRows[$rollNumber] = $studentPunches;
                 }
             }
-            $groupedRows = $filteredGroupedRows;
             
-            // Re-paginate after filtering (create new paginator with filtered collection)
-            $filteredCollection = $groupedRows->flatten(1);
-            $currentPage = $request->query('page', 1);
-            $perPage = min((int) $request->query('per_page', 10), 100);
-            $total = $filteredCollection->count();
-            $items = $filteredCollection->forPage($currentPage, $perPage);
+            // Update allGroupedRows and re-paginate
+            $allGroupedRows = $filteredGroupedRows;
+            $totalStudents = $allGroupedRows->count();
+            $groupedRows = $allGroupedRows->forPage($currentPage, $perPage);
             
+            // Update rows paginator with filtered data
+            $filteredCollection = $allGroupedRows->flatten(1);
             $rows = new LengthAwarePaginator(
-                $items,
-                $total,
+                $filteredCollection,
+                $filteredCollection->count(),
                 $perPage,
                 $currentPage,
                 ['path' => $request->url(), 'query' => $request->query()]
@@ -337,18 +353,11 @@ class AttendanceController extends Controller
             $whatsappMap[$key3] = $log;
         }
         
-        // Compute IN/OUT pairs for each student (lazy loaded - only when accordion opens)
-        // For performance, we'll compute this on-demand via AJAX or compute only for visible students
-        // For now, compute only for first 20 students to avoid memory issues
+        // Compute IN/OUT pairs for each student on current page
+        // Process all students on the current page (max 10 per page, so safe to process all)
         $studentPairs = [];
-        $processedCount = 0;
-        $maxStudentsToProcess = 20; // Limit initial processing for performance
         
         foreach ($groupedRows as $rollNumber => $studentPunches) {
-            // Only process first N students to avoid memory/timeout issues
-            if ($processedCount >= $maxStudentsToProcess) {
-                break;
-            }
             
             // Convert rollNumber to string to match database (employee_id might be int, but roll_number in whatsapp_logs is string)
             $rollStr = (string) $rollNumber;
@@ -475,7 +484,6 @@ class AttendanceController extends Controller
             unset($dayData); // CRITICAL: Unset reference to prevent data mixing
             
             $studentPairs[$rollNumber] = $daily;
-            $processedCount++;
         }
         
         // Calculate date-specific punch counts and durations for each student
@@ -588,20 +596,16 @@ class AttendanceController extends Controller
             });
         }
         
-        // Get all unique roll_numbers matching filters
-        $allStudentRolls = $statsQuery->pluck('employee_id')->unique()->map(function($r) {
-            return (string) $r;
-        })->toArray();
-        
-        // Calculate stats from computed pairs for ALL matching students
+        // Calculate stats from the actual displayed grouped rows (matching what users see)
         $totalPunches = 0;
         $inCount = 0;
         $outCount = 0;
         $durationByRoll = [];
         
-        foreach ($allStudentRolls as $rollNumber) {
+        // Count from all grouped rows (not just paginated ones) to get accurate totals
+        foreach ($allGroupedRows as $rollNumber => $studentPunches) {
             // Unified punches (machine + manual)
-            $mergedPunches = $this->getUnifiedPunches($rollNumber, $dateFrom, $dateTo);
+            $mergedPunches = $this->getUnifiedPunches((string) $rollNumber, $dateFrom, $dateTo);
             
             // Compute IN/OUT pairs using the same logic (NO CACHE - real-time data)
             [$daily, $raw] = $this->computeInOut($mergedPunches);
@@ -627,7 +631,7 @@ class AttendanceController extends Controller
                 }
             }
 
-            $durationByRoll[$rollNumber] = [
+            $durationByRoll[(string) $rollNumber] = [
                 'total_seconds' => $rollSeconds,
                 'hours' => (int) floor($rollSeconds / 3600),
                 'minutes' => (int) floor(($rollSeconds % 3600) / 60),
