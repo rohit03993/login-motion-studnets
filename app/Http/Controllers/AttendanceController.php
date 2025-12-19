@@ -478,6 +478,58 @@ class AttendanceController extends Controller
             $processedCount++;
         }
         
+        // Calculate date-specific punch counts and durations for each student
+        // Calculate for all students in groupedRows, not just the first 20
+        $studentDateStats = [];
+        foreach ($groupedRows as $rollNumber => $studentPunches) {
+            $rollStr = (string) $rollNumber;
+            
+            // If we already have pairs data, use it; otherwise compute on the fly
+            $dailyPairs = $studentPairs[$rollNumber] ?? null;
+            
+            if (!$dailyPairs) {
+                // Compute pairs for this student if not already computed
+                $mergedPunches = $this->getUnifiedPunches((string) $rollNumber, $dateFrom, $dateTo);
+                [$dailyPairs, $raw] = $this->computeInOut($mergedPunches);
+            }
+            
+            // Calculate stats per date
+            foreach ($dailyPairs as $dayData) {
+                $dayDate = $dayData['date'];
+                $pairs = $dayData['pairs'] ?? [];
+                
+                // Count punches for this date (IN + OUT)
+                $datePunchCount = 0;
+                $dateDurationSeconds = 0;
+                
+                foreach ($pairs as $pair) {
+                    if ($pair['in']) {
+                        $datePunchCount++;
+                    }
+                    if ($pair['out']) {
+                        $datePunchCount++;
+                    }
+                    
+                    if ($pair['in'] && $pair['out']) {
+                        $inTime = Carbon::parse($dayDate . ' ' . $pair['in']);
+                        $outTime = Carbon::parse($dayDate . ' ' . $pair['out']);
+                        $dateDurationSeconds += $inTime->diffInSeconds($outTime);
+                    }
+                }
+                
+                if (!isset($studentDateStats[$rollStr])) {
+                    $studentDateStats[$rollStr] = [];
+                }
+                
+                $studentDateStats[$rollStr][$dayDate] = [
+                    'punch_count' => $datePunchCount,
+                    'duration_seconds' => $dateDurationSeconds,
+                    'duration_hours' => (int) floor($dateDurationSeconds / 3600),
+                    'duration_minutes' => (int) floor(($dateDurationSeconds % 3600) / 60),
+                ];
+            }
+        }
+        
         // Calculate statistics based on ALL matching students/employees (not just paginated)
         // Rebuild query to get all unique roll_numbers matching the filters
         $effectiveDateFrom = $dateFrom && $dateFrom > $minDate ? $dateFrom : $minDate;
@@ -589,6 +641,7 @@ class AttendanceController extends Controller
             'rows' => $rows,
             'groupedRows' => $groupedRows,
             'studentPairs' => $studentPairs,
+            'studentDateStats' => $studentDateStats,
             'courses' => $courses,
             'isEmployeeView' => $isEmployeeView,
             'allowedClasses' => $allowedClasses,

@@ -138,12 +138,23 @@
         @foreach ($groupedRows as $rollNumber => $studentPunches)
             @php
                 $firstPunch = $studentPunches->first();
-                $punchCount = $studentPunches->count();
                 $dailyPairs = $studentPairs[$rollNumber] ?? [];
                 usort($dailyPairs, function($a, $b) { return strcmp($b['date'], $a['date']); });
                 $rendered = false;
                 $displayName = $firstPunch->student_name ?? $firstPunch->employee_name;
                 $isEmployee = !empty($firstPunch->employee_name) && empty($firstPunch->student_name);
+                
+                // Get date-specific stats for the selected date
+                $rollStr = (string) $rollNumber;
+                $selectedDate = $filters['date'] ?? date('Y-m-d');
+                $dateStats = $studentDateStats[$rollStr][$selectedDate] ?? null;
+                
+                // If viewing a single date, use date-specific count; otherwise use total count
+                if ($dateStats && $filters['date_from'] === $filters['date_to']) {
+                    $punchCount = $dateStats['punch_count'];
+                } else {
+                    $punchCount = $studentPunches->count();
+                }
             @endphp
             <div class="card mb-3 punch-card">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -175,7 +186,12 @@
                     </div>
                     <div class="d-flex align-items-center gap-2 flex-wrap">
                         <span class="badge bg-primary">{{ $punchCount }} {{ $punchCount === 1 ? 'punch' : 'punches' }}</span>
-                        @if(isset($durationByRoll[$rollNumber]))
+                        @if($dateStats && $filters['date_from'] === $filters['date_to'])
+                            @php $d = $dateStats; @endphp
+                            <span class="badge bg-info text-dark" title="Total duration for {{ $selectedDate }}">
+                                {{ $d['duration_hours'] }}h {{ $d['duration_minutes'] }}m
+                            </span>
+                        @elseif(isset($durationByRoll[$rollNumber]))
                             @php $d = $durationByRoll[$rollNumber]; @endphp
                             <span class="badge bg-info text-dark" title="Total duration across all IN–OUT pairs in range">
                                 {{ $d['hours'] }}h {{ $d['minutes'] }}m

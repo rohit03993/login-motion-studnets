@@ -249,6 +249,20 @@
                     $accordionId = 'date-' . str_replace('-', '', $d['date']);
                     $isFirst = $index === 0;
                     $isAbsent = isset($d['is_absent']) && $d['is_absent'];
+                    
+                    // Calculate total duration for this date
+                    $dateDurationSeconds = 0;
+                    if ($hasPairs && !$isAbsent) {
+                        foreach ($d['pairs'] as $pair) {
+                            if ($pair['in'] && $pair['out']) {
+                                $inTime = \Carbon\Carbon::parse($d['date'] . ' ' . $pair['in']);
+                                $outTime = \Carbon\Carbon::parse($d['date'] . ' ' . $pair['out']);
+                                $dateDurationSeconds += $inTime->diffInSeconds($outTime);
+                            }
+                        }
+                    }
+                    $dateDurationHours = floor($dateDurationSeconds / 3600);
+                    $dateDurationMinutes = floor(($dateDurationSeconds % 3600) / 60);
                 @endphp
                 <div class="accordion-item">
                     <h2 class="accordion-header" id="heading{{ $accordionId }}">
@@ -263,6 +277,11 @@
                                         <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Absent</span>
                                     @else
                                         <span class="badge bg-primary">{{ $pairCount }} {{ $pairCount === 1 ? 'pair' : 'pairs' }}</span>
+                                        @if($dateDurationSeconds > 0)
+                                            <span class="badge bg-info text-dark ms-2">
+                                                <i class="bi bi-clock"></i> {{ $dateDurationHours }}h {{ $dateDurationMinutes }}m
+                                            </span>
+                                        @endif
                                     @endif
                                 </div>
                             </div>
