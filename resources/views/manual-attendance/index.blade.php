@@ -89,7 +89,7 @@
                                         </td>
                                         <td>
                                             <div>
-                                                {{ $item['out_time'] ?? '-' }}
+                                            {{ $item['out_time'] ?? '-' }}
                                                 @if(($item['out_time'] ?? null) && !empty($item['is_manual_out']))
                                                     <span class="badge bg-warning text-dark ms-1" title="Manually marked OUT">
                                                         <i class="bi bi-pencil"></i> Manual
@@ -416,8 +416,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 rollNumber: rollNumber,
                 date: date,
                     inTime: inTime,
-                    btnElement: this,
-                    originalText: this.innerHTML
+                btnElement: this,
+                originalText: this.innerHTML
             };
             
             // Set default time to current time
