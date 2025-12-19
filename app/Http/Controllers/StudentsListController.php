@@ -234,10 +234,33 @@ class StudentsListController extends Controller
             return Str::of($h)->trim()->toString();
         }, array_keys($rows[0]));
 
+        // Normalize column mappings - find best match for phone column if exact match fails
         $mapRoll = $validated['map_roll'];
         $mapName = $validated['map_name'];
         $mapFather = $validated['map_father'] ?? null;
         $mapPhone = $validated['map_phone'] ?? null;
+        
+        // If phone mapping is provided but doesn't exist in headers, try to find similar column
+        if ($mapPhone && !isset($rows[0][$mapPhone])) {
+            $phoneVariations = ['MOBILE', 'PHONE', 'MOBILE NO', 'PHONE NO', 'CONTACT', 'CONTACT NO', 'MOBILE NUMBER', 'PHONE NUMBER'];
+            foreach ($phoneVariations as $variation) {
+                if (isset($rows[0][$variation])) {
+                    $mapPhone = $variation;
+                    break;
+                }
+            }
+            // If still not found, try case-insensitive partial match
+            if (!isset($rows[0][$mapPhone])) {
+                foreach ($headers as $header) {
+                    $headerUpper = strtoupper($header);
+                    if (strpos($headerUpper, 'MOBILE') !== false || strpos($headerUpper, 'PHONE') !== false) {
+                        $mapPhone = $header;
+                        break;
+                    }
+                }
+            }
+        }
+        
         $overwriteMode = $request->boolean('overwrite_mode', false);
 
         $this->ensureDefaultBucket();
