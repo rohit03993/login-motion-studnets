@@ -29,8 +29,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/attendance/export', [AttendanceController::class, 'export']);
     Route::get('/attendance/check-updates', [AttendanceController::class, 'checkUpdates'])->name('attendance.check-updates');
 
-    Route::get('/settings', [SettingsController::class, 'edit']);
-    Route::post('/settings', [SettingsController::class, 'update']);
+    Route::get('/settings', [SettingsController::class, 'edit'])->middleware('superadmin');
+    Route::post('/settings', [SettingsController::class, 'update'])->middleware('superadmin');
 
     // Students List (All authenticated users)
     Route::get('/students', [StudentsListController::class, 'index'])->name('students.index');
@@ -66,6 +66,8 @@ Route::middleware('auth')->group(function () {
     Route::prefix('employees')->name('employees.')->middleware('superadmin')->group(function () {
         Route::get('/', [EmployeeController::class, 'index'])->name('index');
         Route::post('/', [EmployeeController::class, 'store'])->name('store');
+        Route::post('/{roll}/generate-login', [EmployeeController::class, 'generateLogin'])->name('generate-login');
+        Route::post('/{roll}/update-permissions', [EmployeeController::class, 'updatePermissions'])->name('update-permissions');
     });
 
     // Quick-create employee from unmapped punch (all authenticated)

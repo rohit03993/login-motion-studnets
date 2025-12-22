@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? 'Attendance CRM' }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -61,6 +61,11 @@
             position: sticky;
             top: 0;
             z-index: 1;
+        }
+        @media (max-width: 768px) {
+            .table thead th {
+                white-space: normal;
+            }
         }
         .table td, .table th {
             border-color: var(--brand-border);
@@ -121,29 +126,97 @@
             display: none;
         }
         @media (max-width: 768px) {
-            body { padding: 16px 12px; }
-            .container-wide { max-width: 100%; margin: 0 auto 24px auto; }
+            * {
+                box-sizing: border-box;
+            }
+            html {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                overflow-x: hidden;
+            }
+            body {
+                width: 100%;
+                margin: 0;
+                padding: 12px 8px;
+                overflow-x: hidden;
+            }
+            .container-wide { 
+                max-width: 100%;
+                width: 100%;
+                margin: 0 auto;
+                padding: 0;
+            }
+            .navbar-brand {
+                width: 100%;
+                margin: 0 0 16px 0;
+                padding: 12px 8px;
+            }
+            .navbar-brand > div {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+            .navbar-brand .d-flex {
+                width: 100%;
+            }
             .nav-links {
-                gap: 8px;
+                gap: 4px;
                 flex-direction: column;
-                display: none;
+                display: none !important;
                 width: 100%;
                 margin-top: 8px;
+                max-height: calc(100vh - 120px);
+                overflow-y: auto;
             }
             .nav-links.show {
                 display: flex !important;
             }
             .nav-links a, .nav-links .dropdown > a {
-                padding: 8px 4px;
+                padding: 12px 16px;
+                border-radius: 8px;
+                width: 100%;
+                white-space: normal;
+                word-wrap: break-word;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                min-height: 44px;
+            }
+            .nav-links a i {
+                flex-shrink: 0;
+                width: 20px;
+                text-align: center;
+            }
+            .nav-links a span, .nav-links a {
+                flex: 1;
+                overflow: visible;
+                text-overflow: clip;
+            }
+            .nav-links a.ps-4 {
+                padding-left: 40px;
+                font-size: 0.95rem;
+            }
+            .nav-links .nav-link.fw-bold {
+                white-space: normal;
+                padding: 12px 16px;
             }
             .brand-card {
                 padding: 12px;
+                width: 100%;
+                margin-left: 0;
+                margin-right: 0;
             }
             .mobile-nav-toggle {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                padding: 8px 10px;
+                display: none !important;
+            }
+            .table-responsive { 
+                margin-top: 8px; 
+            }
+            .table-wrap { 
+                display: none; 
+            }
+            .card-list { 
+                display: block; 
             }
         }
         .form-control {
@@ -199,6 +272,92 @@
             border-bottom: 2px solid var(--brand-border);
             margin-bottom: 24px;
         }
+        .navbar-brand > div {
+            flex-wrap: nowrap !important;
+            overflow-x: auto;
+            position: relative;
+        }
+        .navbar-brand > div::-webkit-scrollbar {
+            display: none;
+        }
+        .navbar-brand > div {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .dropdown {
+            position: relative;
+            z-index: 1000;
+        }
+        .dropdown-menu {
+            z-index: 1050 !important;
+            position: absolute !important;
+            display: none !important;
+            visibility: hidden;
+            min-width: 200px;
+            background: var(--brand-card) !important;
+            border: 1px solid var(--brand-border);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 4px 0;
+            margin-top: 4px;
+            top: 100%;
+            left: 0;
+        }
+        .dropdown-menu.show {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        .dropdown-menu-end {
+            right: 0 !important;
+            left: auto !important;
+        }
+        /* Force override Bootstrap's inline styles when shown */
+        .dropdown-menu.show[style] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        .dropdown-item {
+            padding: 8px 16px;
+            color: var(--brand-text);
+            text-decoration: none;
+            display: block;
+            white-space: nowrap;
+        }
+        .dropdown-item:hover {
+            background: rgba(231,76,60,0.1);
+            color: var(--brand-accent-2);
+        }
+        .dropdown-item i {
+            margin-right: 8px;
+        }
+        .dropdown-toggle {
+            cursor: pointer !important;
+            pointer-events: auto !important;
+        }
+        .dropdown-toggle-btn {
+            background: none;
+            border: none;
+            padding: 8px 12px;
+            color: var(--brand-text);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .dropdown-toggle-btn:hover {
+            background: rgba(0,0,0,0.04);
+            color: var(--brand-text);
+        }
+        .dropdown-toggle-btn.active {
+            background: rgba(231,76,60,0.1);
+            color: var(--brand-accent-2);
+        }
         .brand-logo {
             font-size: 20px;
             font-weight: 700;
@@ -211,8 +370,13 @@
         .brand-logo:hover {
             color: var(--brand-accent-2);
         }
+        .brand-logo img {
+            height: 40px;
+            max-width: 200px;
+            object-fit: contain;
+        }
         .nav-links {
-            margin-left: 24px;
+            margin-left: 0;
         }
         .nav-link {
             color: var(--brand-muted);
@@ -223,6 +387,12 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            white-space: nowrap;
+        }
+        @media (max-width: 768px) {
+            .nav-link {
+                white-space: normal;
+            }
         }
         .nav-link:hover {
             color: var(--brand-accent-2);
@@ -294,144 +464,280 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
         @media (max-width: 768px) {
-            body { padding: 12px; }
             .table-responsive { margin-top: 8px; }
             .table-wrap { display: none; }
             .card-list { display: block; }
-            .navbar-brand { margin-bottom: 16px; }
-            .nav-links { display: none !important; }
         }
     </style>
 </head>
 <body>
 <div class="container-wide">
     <nav class="navbar-brand mb-4">
-        <div class="d-flex align-items-center justify-content-between">
-            <div class="d-flex align-items-center gap-3">
-                <a href="{{ url('/attendance') }}" class="brand-logo">
-                    <i class="bi bi-clock-history"></i>
-                    <span>Attendance CRM</span>
+        <div class="d-flex align-items-center gap-2" style="flex-wrap: nowrap !important; white-space: nowrap;">
+            @php
+                $companyLogo = \App\Models\Setting::get('company_logo');
+                $canViewEmployees = auth()->user()->isSuperAdmin() || (auth()->user()->can_view_employees ?? false);
+            @endphp
+            @if($companyLogo)
+                <a href="{{ url('/attendance') }}" class="brand-logo" style="flex-shrink: 0; margin-right: 8px;">
+                    <img src="{{ asset('storage/' . $companyLogo) }}" alt="Company Logo" style="max-height: 35px; max-width: 150px; object-fit: contain;">
                 </a>
-                @php
-                    $canViewEmployees = auth()->user()->isSuperAdmin() || (auth()->user()->can_view_employees ?? false);
-                @endphp
-                <div class="nav-links d-none d-md-flex gap-3">
-                    <a href="{{ url('/attendance') }}" class="nav-link {{ request()->is('attendance*') && !request()->is('students*') ? 'active' : '' }}">
-                        <i class="bi bi-list-ul"></i> Live Attendance
+            @endif
+            <div class="nav-links d-none d-md-flex gap-1" style="flex-shrink: 0;">
+                <a href="{{ url('/attendance') }}" class="nav-link {{ request()->is('attendance*') && !request()->is('students*') ? 'active' : '' }}">
+                    <i class="bi bi-list-ul"></i> Live Attendance
+                </a>
+                <a href="{{ route('students.index') }}" class="nav-link {{ request()->is('students*') ? 'active' : '' }}">
+                    <i class="bi bi-people"></i> Students
+                </a>
+                @if($canViewEmployees)
+                    <a href="{{ route('employees.attendance') }}" class="nav-link {{ request()->routeIs('employees.attendance') ? 'active' : '' }}">
+                        <i class="bi bi-briefcase"></i> Employee Attendance
                     </a>
-                    <div class="dropdown">
-                        <a href="#" class="nav-link dropdown-toggle {{ request()->is('students*') ? 'active' : '' }}" data-bs-toggle="dropdown">
-                            <i class="bi bi-people"></i> Students
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{{ route('students.index') }}">
-                                <i class="bi bi-list-ul"></i> All Students
-                            </a></li>
-                            @if(auth()->user()->isSuperAdmin())
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{{ route('courses.index') }}">
-                                    <i class="bi bi-book"></i> Manage Classes
-                                </a></li>
-                                <li><a class="dropdown-item" href="{{ route('employees.index') }}">
-                                    <i class="bi bi-people-fill"></i> Manage Employees
-                                </a></li>
-                                <li><a class="dropdown-item" href="{{ route('permissions.edit') }}">
-                                    <i class="bi bi-shield-lock"></i> Staff Permissions
-                                </a></li>
-                                {{-- Batches menu hidden; batches created via class flow --}}
-                            @endif
-                        </ul>
-                    </div>
-                    @if($canViewEmployees)
-                        <a href="{{ route('employees.attendance') }}" class="nav-link {{ request()->routeIs('employees.attendance') ? 'active' : '' }}">
-                            <i class="bi bi-briefcase"></i> Employee Attendance
-                        </a>
-                    @endif
-                    <a href="{{ route('manual-attendance.index') }}" class="nav-link {{ request()->is('manual-attendance*') ? 'active' : '' }}">
-                        <i class="bi bi-pencil-square"></i> Manual Attendance
-                    </a>
-                    <a href="{{ url('/settings') }}" class="nav-link {{ request()->is('settings*') ? 'active' : '' }}">
+                @endif
+                <a href="{{ route('manual-attendance.index') }}" class="nav-link {{ request()->is('manual-attendance*') ? 'active' : '' }}">
+                    <i class="bi bi-pencil-square"></i> Manual Attendance
+                </a>
+                @if(auth()->user()->isSuperAdmin())
+                <div class="dropdown" id="settingsDropdownContainer">
+                    <button type="button" class="nav-link dropdown-toggle-btn {{ request()->is('settings*') || request()->is('students/courses*') || (request()->is('employees*') && !request()->routeIs('employees.attendance')) || request()->routeIs('permissions.*') ? 'active' : '' }}" id="settingsDropdownBtn">
                         <i class="bi bi-gear"></i> Settings
-                    </a>
-                </div>
-                <button class="btn btn-outline-secondary btn-sm mobile-nav-toggle d-md-none" id="mobileNavToggle">
-                    <i class="bi bi-list"></i> Menu
-                </button>
-                <div class="nav-links gap-3 d-md-none" id="mobileNavLinks">
-                    <a href="{{ url('/attendance') }}" class="nav-link {{ request()->is('attendance*') && !request()->is('students*') ? 'active' : '' }}">
-                        <i class="bi bi-list-ul"></i> Live Attendance
-                    </a>
-                    <a href="{{ route('students.index') }}" class="nav-link {{ request()->is('students') ? 'active' : '' }}">
-                        <i class="bi bi-people"></i> All Students
-                    </a>
-                    @if(auth()->user()->isSuperAdmin())
-                        <a href="{{ route('courses.index') }}" class="nav-link {{ request()->is('students/courses*') ? 'active' : '' }}">
+                    </button>
+                    <ul class="dropdown-menu" id="settingsDropdownMenu">
+                        <li><a class="dropdown-item" href="{{ url('/settings') }}">
+                            <i class="bi bi-gear"></i> System Settings
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ route('courses.index') }}">
                             <i class="bi bi-book"></i> Manage Classes
-                        </a>
-                        <a href="{{ route('employees.index') }}" class="nav-link {{ request()->is('employees*') ? 'active' : '' }}">
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ route('employees.index') }}">
                             <i class="bi bi-people-fill"></i> Manage Employees
-                        </a>
-                        <a href="{{ route('permissions.edit') }}" class="nav-link {{ request()->routeIs('permissions.*') ? 'active' : '' }}">
-                            <i class="bi bi-shield-lock"></i> Staff Permissions
-                        </a>
-                    @endif
-                    @if($canViewEmployees)
-                        <a href="{{ route('employees.attendance') }}" class="nav-link {{ request()->routeIs('employees.attendance') ? 'active' : '' }}">
-                            <i class="bi bi-briefcase"></i> Employee Attendance
-                        </a>
-                    @endif
-                    <a href="{{ route('manual-attendance.index') }}" class="nav-link {{ request()->is('manual-attendance*') ? 'active' : '' }}">
-                        <i class="bi bi-pencil-square"></i> Manual Attendance
-                    </a>
-                    <a href="{{ url('/settings') }}" class="nav-link {{ request()->is('settings*') ? 'active' : '' }}">
-                        <i class="bi bi-gear"></i> Settings
-                    </a>
+                        </a></li>
+                    </ul>
                 </div>
+                @endif
             </div>
-            <div class="d-flex align-items-center gap-3">
-                @auth
-                    <div class="dropdown">
-                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                            <i class="bi bi-person-circle"></i> {{ auth()->user()->name }}
-                            @if(auth()->user()->isSuperAdmin())
-                                <span class="badge bg-warning text-dark ms-1">Admin</span>
-                            @endif
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            @if(auth()->user()->isSuperAdmin())
-                                <li><a class="dropdown-item" href="{{ route('users.index') }}"><i class="bi bi-people"></i> Manage Users</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                            @endif
-                            <li><a class="dropdown-item" href="{{ route('profile.change-password') }}"><i class="bi bi-key"></i> Change Password</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <form method="POST" action="{{ route('logout') }}">
-                                    @csrf
-                                    <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right"></i> Logout</button>
-                                </form>
-                            </li>
-                        </ul>
-                    </div>
-                @endauth
-                <div class="text-muted small d-none d-md-block">
-                    <i class="bi bi-database"></i> Real-time sync
+            @auth
+                <div class="dropdown ms-auto" id="userDropdownContainer" style="flex-shrink: 0;">
+                    <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle-btn d-flex align-items-center gap-1" id="userDropdownBtn" style="white-space: nowrap;">
+                        <i class="bi bi-person-circle"></i> <span style="white-space: nowrap;">{{ auth()->user()->name }}</span>
+                        @if(auth()->user()->isSuperAdmin())
+                            <span class="badge bg-warning text-dark">Admin</span>
+                        @endif
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" id="userDropdownMenu">
+                        <li><a class="dropdown-item" href="{{ route('profile.change-password') }}"><i class="bi bi-key"></i> Change Password</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form method="POST" action="{{ route('logout') }}">
+                                @csrf
+                                <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right"></i> Logout</button>
+                            </form>
+                        </li>
+                    </ul>
                 </div>
-            </div>
+            @endauth
         </div>
     </nav>
     @yield('content')
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Dropdown fix v2 - Cache bust: 2025-12-22 -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const toggle = document.getElementById('mobileNavToggle');
-        const links = document.getElementById('mobileNavLinks');
-        if (toggle && links) {
-            toggle.addEventListener('click', function() {
-                links.classList.toggle('show');
+    // SIMPLE DROPDOWN SOLUTION - No Bootstrap interference
+    console.log('=== DROPDOWN DEBUG START ===');
+    
+    function showMenu(menu, button) {
+        console.log('Showing menu:', menu.id);
+        
+        // Get button position
+        var buttonRect = button.getBoundingClientRect();
+        var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+        
+        // Calculate position relative to viewport
+        var top = buttonRect.bottom + scrollTop;
+        var left = buttonRect.left + scrollLeft;
+        
+        console.log('Button rect:', buttonRect);
+        console.log('Calculated position - top:', top, 'left:', left);
+        
+        // Move menu to body temporarily to avoid overflow clipping
+        var originalParent = menu.parentElement;
+        if (menu.parentElement !== document.body) {
+            menu.setAttribute('data-original-parent', 'true');
+            document.body.appendChild(menu);
+        }
+        
+        menu.classList.add('show');
+        // Use fixed positioning to position relative to viewport
+        menu.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; position: fixed !important; z-index: 99999 !important; top: ' + (buttonRect.bottom + 4) + 'px !important; left: ' + left + 'px !important; transform: none !important; margin: 0 !important; min-width: 200px !important;';
+        
+        // For dropdown-menu-end, align to right edge of button
+        if (menu.classList.contains('dropdown-menu-end')) {
+            menu.style.left = 'auto !important';
+            menu.style.right = (window.innerWidth - buttonRect.right) + 'px !important';
+        }
+        
+        console.log('Menu style after show:', menu.style.cssText);
+        console.log('Menu now in body:', menu.parentElement === document.body);
+    }
+    
+    function hideMenu(menu) {
+        console.log('Hiding menu:', menu.id);
+        menu.classList.remove('show');
+        menu.style.cssText = 'display: none !important; visibility: hidden !important;';
+    }
+    
+    function initDropdowns() {
+        console.log('=== INITIALIZING DROPDOWNS ===');
+        
+        var settingsBtn = document.getElementById('settingsDropdownBtn');
+        var settingsMenu = document.getElementById('settingsDropdownMenu');
+        var userBtn = document.getElementById('userDropdownBtn');
+        var userMenu = document.getElementById('userDropdownMenu');
+        
+        console.log('Settings button found:', !!settingsBtn);
+        console.log('Settings menu found:', !!settingsMenu);
+        console.log('User button found:', !!userBtn);
+        console.log('User menu found:', !!userMenu);
+        
+        if (!settingsBtn || !settingsMenu) {
+            console.error('SETTINGS DROPDOWN ELEMENTS MISSING!');
+        }
+        if (!userBtn || !userMenu) {
+            console.error('USER DROPDOWN ELEMENTS MISSING!');
+        }
+        
+        // Hide menus initially
+        if (settingsMenu) {
+            hideMenu(settingsMenu);
+            console.log('Settings menu hidden');
+        }
+        if (userMenu) {
+            hideMenu(userMenu);
+            console.log('User menu hidden');
+        }
+        
+        // Settings dropdown
+        if (settingsBtn && settingsMenu) {
+            settingsBtn.addEventListener('click', function(e) {
+                console.log('SETTINGS BUTTON CLICKED!');
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                
+                var isShown = settingsMenu.classList.contains('show');
+                console.log('Settings menu currently shown:', isShown);
+                
+                // Hide user menu
+                if (userMenu) hideMenu(userMenu);
+                
+                // Toggle settings menu
+                if (isShown) {
+                    hideMenu(settingsMenu);
+                } else {
+                    showMenu(settingsMenu, settingsBtn);
+                    console.log('Menu should be visible now. Checking position...');
+                    console.log('Menu computed display:', window.getComputedStyle(settingsMenu).display);
+                    console.log('Menu computed visibility:', window.getComputedStyle(settingsMenu).visibility);
+                    console.log('Menu getBoundingClientRect:', settingsMenu.getBoundingClientRect());
+                }
+            }, true); // Use capture phase to run before document listener
+            console.log('Settings dropdown handler attached');
+        }
+        
+        // User dropdown
+        if (userBtn && userMenu) {
+            userBtn.addEventListener('click', function(e) {
+                console.log('USER BUTTON CLICKED!');
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                
+                var isShown = userMenu.classList.contains('show');
+                console.log('User menu currently shown:', isShown);
+                
+                // Hide settings menu
+                if (settingsMenu) hideMenu(settingsMenu);
+                
+                // Toggle user menu
+                if (isShown) {
+                    hideMenu(userMenu);
+                } else {
+                    showMenu(userMenu, userBtn);
+                    console.log('Menu should be visible now. Checking position...');
+                    console.log('Menu computed display:', window.getComputedStyle(userMenu).display);
+                    console.log('Menu computed visibility:', window.getComputedStyle(userMenu).visibility);
+                    console.log('Menu getBoundingClientRect:', userMenu.getBoundingClientRect());
+                }
+            }, true); // Use capture phase to run before document listener
+            console.log('User dropdown handler attached');
+        }
+        
+        // Close on outside click - but ONLY after button handlers have run
+        // Use a flag to prevent immediate closing
+        var dropdownClickInProgress = false;
+        
+        // Set flag when button is clicked
+        if (settingsBtn) {
+            settingsBtn.addEventListener('mousedown', function() {
+                dropdownClickInProgress = true;
+                setTimeout(function() { dropdownClickInProgress = false; }, 200);
             });
         }
-    });
+        if (userBtn) {
+            userBtn.addEventListener('mousedown', function() {
+                dropdownClickInProgress = true;
+                setTimeout(function() { dropdownClickInProgress = false; }, 200);
+            });
+        }
+        
+        // Close on outside click - with delay to allow button click to complete
+        document.addEventListener('click', function(e) {
+            // Don't process if a dropdown click is in progress
+            if (dropdownClickInProgress) {
+                console.log('Ignoring click - dropdown click in progress');
+                return;
+            }
+            
+            // Don't close if clicking inside dropdown
+            var clickedDropdown = e.target.closest('.dropdown');
+            if (!clickedDropdown) {
+                // Small delay to ensure button click handler has finished
+                setTimeout(function() {
+                    if (settingsMenu && settingsMenu.classList.contains('show')) {
+                        console.log('Closing settings menu (outside click)');
+                        hideMenu(settingsMenu);
+                    }
+                    if (userMenu && userMenu.classList.contains('show')) {
+                        console.log('Closing user menu (outside click)');
+                        hideMenu(userMenu);
+                    }
+                }, 50);
+            }
+        });
+        
+        console.log('=== DROPDOWNS INITIALIZED ===');
+    }
+    
+    // Run multiple times to ensure it works
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing dropdowns');
+            setTimeout(initDropdowns, 50);
+            setTimeout(initDropdowns, 200);
+            setTimeout(initDropdowns, 500);
+        });
+    } else {
+        console.log('DOM already loaded, initializing dropdowns');
+        initDropdowns();
+        setTimeout(initDropdowns, 100);
+        setTimeout(initDropdowns, 300);
+    }
+    
+    console.log('=== DROPDOWN DEBUG END ===');
 </script>
 @stack('scripts')
 </body>

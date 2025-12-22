@@ -121,8 +121,8 @@
     </div>
     
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead>
+        <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
                 <tr>
                     @if(auth()->user()->isSuperAdmin())
                         <th style="width: 40px;">
@@ -146,14 +146,18 @@
                             </td>
                         @endif
                         <td>
-                            <div class="fw-medium">{{ $student->roll_number }}</div>
+                            <a href="{{ route('students.show', $student->roll_number) }}" class="text-decoration-none fw-medium" style="color: var(--brand-accent-2);">
+                                {{ $student->roll_number }}
+                            </a>
                             @if($student->class_course)
-                                <small class="text-muted">{{ $student->class_course }}</small>
+                                <br><small class="text-muted">{{ $student->class_course }}</small>
                             @endif
                         </td>
                         <td>
                             @if($student->name)
-                                <div>{{ $student->name }}</div>
+                                <a href="{{ route('students.show', $student->roll_number) }}" class="text-decoration-none fw-medium" style="color: var(--brand-accent-2);">
+                                    {{ $student->name }}
+                                </a>
                             @else
                                 <span class="text-muted">—</span>
                             @endif
@@ -168,14 +172,15 @@
                         <td>
                             @if($student->parent_phone)
                                 <a href="tel:{{ $student->parent_phone }}" class="text-decoration-none">
-                                    {{ $student->parent_phone }}
+                                    <i class="bi bi-telephone"></i> {{ $student->parent_phone }}
                                 </a>
+                                <br>
                                 @if($student->alerts_enabled)
-                                    <br><small class="badge bg-success" style="font-size: 0.7rem;">
+                                    <small class="badge bg-success" style="font-size: 0.7rem;">
                                         <i class="bi bi-bell"></i> Alerts ON
                                     </small>
                                 @else
-                                    <br><small class="badge bg-secondary" style="font-size: 0.7rem;">
+                                    <small class="badge bg-secondary" style="font-size: 0.7rem;">
                                         <i class="bi bi-bell-slash"></i> Alerts OFF
                                     </small>
                                 @endif
@@ -197,15 +202,15 @@
                         </td>
                         <td>
                             <a href="{{ route('students.show', $student->roll_number) }}" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-pencil"></i> Edit
+                                <i class="bi bi-eye"></i> View
                             </a>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="{{ auth()->user()->isSuperAdmin() ? '7' : '6' }}" class="text-center text-muted py-4">
-                            <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                            <div class="mt-2">No students found</div>
+                        <td colspan="{{ auth()->user()->isSuperAdmin() ? '7' : '6' }}" class="text-center text-muted py-5">
+                            <i class="bi bi-inboxes" style="font-size: 3rem;"></i>
+                            <p class="mt-3 mb-0">No students found</p>
                             @if($search)
                                 <div class="mt-2">
                                     <a href="{{ route('students.index') }}" class="btn btn-sm btn-outline-primary">

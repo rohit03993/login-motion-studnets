@@ -185,11 +185,10 @@ class AttendanceController extends Controller
             $query->whereNotNull('e.id');
         } else {
             if (!$isSuper && !empty($allowedClasses)) {
+                // Employee with class permissions - show only assigned classes
                 $query->whereIn('s.class_course', $allowedClasses);
-            } elseif (!$isSuper && empty($allowedClasses)) {
-                // no classes assigned -> show none
-                $query->whereRaw('1=0');
             }
+            // If employee has no class permissions assigned, show all data (no filter)
         }
 
         // Always enforce minimum date
@@ -578,10 +577,10 @@ class AttendanceController extends Controller
             $statsQuery->whereNotNull('e.id');
         } else {
             if (!$isSuper && !empty($allowedClasses)) {
+                // Employee with class permissions - show only assigned classes
                 $statsQuery->whereIn('s.class_course', $allowedClasses);
-            } elseif (!$isSuper && empty($allowedClasses)) {
-                $statsQuery->whereRaw('1=0');
             }
+            // If employee has no class permissions assigned, show all data (no filter)
         }
         
         if ($roll) {

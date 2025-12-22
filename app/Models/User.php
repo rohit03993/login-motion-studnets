@@ -71,4 +71,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(UserClassPermission::class);
     }
+
+    /**
+     * Get the employee associated with this user
+     */
+    public function employee()
+    {
+        return $this->hasOne(Employee::class);
+    }
 }

@@ -7,7 +7,7 @@
     @if(session('status'))
         <div class="alert alert-success mt-2">{{ session('status') }}</div>
     @endif
-    <form class="row gy-3 gx-3 mt-2" method="post" action="{{ url('/settings') }}">
+    <form class="row gy-3 gx-3 mt-2" method="post" action="{{ url('/settings') }}" enctype="multipart/form-data">
         @csrf
         <div class="col-12">
             <label class="form-label">Aisensy URL</label>
@@ -67,6 +67,41 @@
         </div>
     </form>
 </div>
+
+@if(auth()->user()->isSuperAdmin())
+<div class="brand-card mb-3">
+    <div class="section-title mb-2">Company Logo</div>
+    <div class="muted mb-3">Upload company logo to replace "Attendance CRM" text in the navigation bar.</div>
+    <form class="row gy-3 gx-3" method="post" action="{{ url('/settings') }}" enctype="multipart/form-data">
+        @csrf
+        <div class="col-12 col-md-6">
+            <label class="form-label">Upload Logo</label>
+            <input type="file" name="company_logo" class="form-control" accept="image/*">
+            <div class="form-text small">Max size: 2MB. Supported formats: JPEG, PNG, JPG, GIF, SVG</div>
+            @error('company_logo') <div class="text-danger small">{{ $message }}</div> @enderror
+        </div>
+        <div class="col-12 col-md-6">
+            @if($company_logo)
+                <label class="form-label">Current Logo</label>
+                <div class="mb-2">
+                    <img src="{{ asset('storage/' . $company_logo) }}" alt="Company Logo" style="max-height: 80px; max-width: 200px; object-fit: contain; border: 1px solid var(--brand-border); padding: 8px; border-radius: 8px;">
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="remove_logo" id="removeLogo" value="1">
+                    <label class="form-check-label" for="removeLogo">
+                        Remove logo (revert to text)
+                    </label>
+                </div>
+            @else
+                <div class="text-muted small">No logo uploaded. Default "Attendance CRM" text will be shown.</div>
+            @endif
+        </div>
+        <div class="col-12">
+            <button type="submit" class="btn btn-primary">Save Logo</button>
+        </div>
+    </form>
+</div>
+@endif
 
 @if(auth()->user()->isSuperAdmin())
 <div class="brand-card">
