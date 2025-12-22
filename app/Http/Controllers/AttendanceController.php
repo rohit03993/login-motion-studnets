@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Student;
+use App\Models\Employee;
 use App\Models\ManualAttendance;
 use App\Models\Course;
 use Carbon\Carbon;
@@ -53,11 +54,8 @@ class AttendanceController extends Controller
                     'date_from' => $dateFrom,
                     'date_to' => $dateTo,
                 ],
-                'todayStats' => [
-                    'total' => 0,
-                    'in' => 0,
-                    'out' => 0,
-                ],
+                'studentStats' => ['total' => 0, 'in' => 0, 'out' => 0],
+                'employeeStats' => ['total' => 0, 'in' => 0, 'out' => 0],
                 'durationTotals' => [
                     'students' => ['hours' => 0, 'minutes' => 0],
                     'employees' => ['hours' => 0, 'minutes' => 0],
@@ -597,13 +595,22 @@ class AttendanceController extends Controller
         }
         
         // Calculate stats from the actual displayed grouped rows (matching what users see)
-        $totalPunches = 0;
-        $inCount = 0;
-        $outCount = 0;
+        // Separate stats for students and employees
+        $studentStats = ['total' => 0, 'in' => 0, 'out' => 0];
+        $employeeStats = ['total' => 0, 'in' => 0, 'out' => 0];
         $durationByRoll = [];
+        
+        // Get all student and employee roll numbers for quick lookup
+        $allStudentRolls = Student::pluck('roll_number')->toArray();
+        $allEmployeeRolls = Employee::pluck('roll_number')->toArray();
         
         // Count from all grouped rows (not just paginated ones) to get accurate totals
         foreach ($allGroupedRows as $rollNumber => $studentPunches) {
+            // Check if this is an employee (priority check - if employee exists, it's an employee)
+            // Otherwise, treat as student (including unmapped entries)
+            $isEmployee = in_array((string)$rollNumber, $allEmployeeRolls);
+            $isStudent = !$isEmployee; // If not employee, then it's student (or unmapped, which defaults to student)
+            
             // Unified punches (machine + manual)
             $mergedPunches = $this->getUnifiedPunches((string) $rollNumber, $dateFrom, $dateTo);
             
@@ -612,15 +619,28 @@ class AttendanceController extends Controller
             
             // Count accepted punches from pairs and sum duration for this roll
             $rollSeconds = 0;
+            
             foreach ($daily as $dayData) {
                 foreach ($dayData['pairs'] as $pair) {
                     if ($pair['in']) {
-                        $inCount++;
-                        $totalPunches++;
+                        if ($isEmployee) {
+                            $employeeStats['in']++;
+                            $employeeStats['total']++;
+                        } else {
+                            // Student or unmapped (defaults to student)
+                            $studentStats['in']++;
+                            $studentStats['total']++;
+                        }
                     }
                     if ($pair['out']) {
-                        $outCount++;
-                        $totalPunches++;
+                        if ($isEmployee) {
+                            $employeeStats['out']++;
+                            $employeeStats['total']++;
+                        } else {
+                            // Student or unmapped (defaults to student)
+                            $studentStats['out']++;
+                            $studentStats['total']++;
+                        }
                     }
 
                     if ($pair['in'] && $pair['out']) {
@@ -658,11 +678,8 @@ class AttendanceController extends Controller
                 'date_to' => $dateTo,
                 'filter_state' => $filterState,
             ],
-            'todayStats' => [
-                'total' => $totalPunches,
-                'in' => $inCount,
-                'out' => $outCount,
-            ],
+            'studentStats' => $studentStats,
+            'employeeStats' => $employeeStats,
             'durationTotals' => $durationTotals,
             'durationByRoll' => $durationByRoll,
         ]);
@@ -882,6 +899,219 @@ class AttendanceController extends Controller
                 'minutes' => $totalDurationMinutes,
             ],
             'courses' => $courses,
+        ]);
+    }
+
+    public function employee(Request $request, string $roll)
+    {
+        $dateFrom = $request->query('date_from');
+        $dateTo = $request->query('date_to');
+        
+        // Enforce minimum attendance date (2025-12-15)
+        $minDate = self::MIN_ATTENDANCE_DATE;
+        if ($dateFrom && $dateFrom < $minDate) {
+            $dateFrom = $minDate;
+        }
+        if (!$dateFrom) {
+            $dateFrom = $minDate;
+        }
+        
+        // Default to today's date if no end date is provided
+        $today = Carbon::today()->format('Y-m-d');
+        if (!$dateTo) {
+            $dateTo = $today;
+        }
+        
+        // Ensure date range doesn't go before minimum date
+        if ($dateTo < $minDate) {
+            $dateTo = $minDate;
+        }
+
+        $employee = Employee::where('roll_number', $roll)->first();
+        // If no mapping yet, create an in-memory placeholder so the page still renders blanks.
+        if (!$employee) {
+            $employee = new Employee([
+                'roll_number' => $roll,
+                'name' => null,
+                'father_name' => null,
+                'mobile' => null,
+                'category' => null,
+                'is_active' => true,
+            ]);
+        }
+
+        // Unified punches (machine + manual) for this employee
+        $mergedPunches = $this->getUnifiedPunches($roll, $dateFrom, $dateTo);
+
+        [$daily, $raw] = $this->computeInOut($mergedPunches);
+        
+        // Get dates that have attendance records
+        $datesWithAttendance = collect($daily)->pluck('date')->toArray();
+        
+        // Add absent dates (dates that have passed OR today, but have no attendance)
+        $today = Carbon::today()->format('Y-m-d');
+        $dateFromObj = Carbon::parse($dateFrom);
+        $dateToObj = Carbon::parse($dateTo);
+        
+        // Generate all dates in the range
+        $allDatesInRange = [];
+        $currentDate = $dateFromObj->copy();
+        while ($currentDate->lte($dateToObj)) {
+            $dateStr = $currentDate->format('Y-m-d');
+            // Mark as absent if date has passed (including today) and has no attendance
+            if ($dateStr <= $today && !in_array($dateStr, $datesWithAttendance)) {
+                $allDatesInRange[] = $dateStr;
+            }
+            $currentDate->addDay();
+        }
+        
+        // Add absent dates to daily array
+        foreach ($allDatesInRange as $absentDate) {
+            $daily[] = [
+                'date' => $absentDate,
+                'pairs' => [],
+                'is_absent' => true, // Flag to indicate this is an absent date
+            ];
+        }
+        
+        // Calculate total duration for this employee
+        $totalDurationSeconds = 0;
+        foreach ($daily as $dayData) {
+            if (isset($dayData['is_absent']) && $dayData['is_absent']) {
+                continue; // Skip absent dates in duration calculation
+            }
+            foreach ($dayData['pairs'] as $pair) {
+                if ($pair['in'] && $pair['out']) {
+                    $inTime = Carbon::parse($dayData['date'] . ' ' . $pair['in']);
+                    $outTime = Carbon::parse($dayData['date'] . ' ' . $pair['out']);
+                    $duration = $inTime->diffInSeconds($outTime);
+                    $totalDurationSeconds += $duration;
+                }
+            }
+        }
+        $totalDurationHours = floor($totalDurationSeconds / 3600);
+        $totalDurationMinutes = floor(($totalDurationSeconds % 3600) / 60);
+
+        // Create a map of notes by date+time for quick lookup
+        $notesMap = [];
+        foreach ($raw as $rawItem) {
+            $key = $rawItem['date'] . '|' . $rawItem['time'];
+            $notesMap[$key] = $rawItem['note'] ?? null;
+        }
+
+        // Convert raw punches to proper format for display, including notes
+        $rawPunches = $mergedPunches->map(function ($p) use ($notesMap) {
+            $key = $p->punch_date . '|' . $p->punch_time;
+            return (object) [
+                'punch_date' => $p->punch_date,
+                'punch_time' => $p->punch_time,
+                'note' => $notesMap[$key] ?? null,
+            ];
+        });
+
+        // Get WhatsApp logs for this employee and create a lookup map
+        $whatsappQuery = DB::table('whatsapp_logs')
+            ->where('roll_number', $roll)
+            ->where('punch_date', '>=', self::MIN_ATTENDANCE_DATE); // Always enforce minimum date
+
+        if ($dateFrom && $dateFrom > self::MIN_ATTENDANCE_DATE) {
+            $whatsappQuery->where('punch_date', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $whatsappQuery->where('punch_date', '<=', $dateTo);
+        }
+
+        $whatsappLogs = $whatsappQuery->get();
+        
+        // Create a map for quick lookup: key = "date|time|state" => whatsapp log
+        // Store multiple time format variations to ensure matching
+        $whatsappMap = [];
+        foreach ($whatsappLogs as $log) {
+            $normalizedTime = $this->normalizeTime($log->punch_time);
+            $baseKey = $log->punch_date . '|';
+            $state = $log->state;
+            
+            // Key 1: Normalized H:i:s format
+            $key1 = $baseKey . $normalizedTime . '|' . $state;
+            $whatsappMap[$key1] = $log;
+            
+            // Key 2: H:i format (without seconds)
+            if (strlen($normalizedTime) === 8) {
+                $timeWithoutSeconds = substr($normalizedTime, 0, 5);
+                $key2 = $baseKey . $timeWithoutSeconds . '|' . $state;
+                $whatsappMap[$key2] = $log;
+            }
+            
+            // Key 3: Original time format
+            $key3 = $baseKey . $log->punch_time . '|' . $state;
+            $whatsappMap[$key3] = $log;
+        }
+
+        // Attach WhatsApp status to daily pairs
+        foreach ($daily as &$dayData) {
+            foreach ($dayData['pairs'] as &$pair) {
+                // Check for IN WhatsApp status
+                if ($pair['in']) {
+                    $baseKey = $dayData['date'] . '|';
+                    $normalizedInTime = $this->normalizeTime($pair['in']);
+                    
+                    // Try 1: Normalized H:i:s format
+                    $inKey1 = $baseKey . $normalizedInTime . '|IN';
+                    $pair['whatsapp_in'] = $whatsappMap[$inKey1] ?? null;
+                    
+                    // Try 2: H:i format (without seconds)
+                    if (!$pair['whatsapp_in'] && strlen($normalizedInTime) === 8) {
+                        $timeWithoutSeconds = substr($normalizedInTime, 0, 5);
+                        $inKey2 = $baseKey . $timeWithoutSeconds . '|IN';
+                        $pair['whatsapp_in'] = $whatsappMap[$inKey2] ?? null;
+                    }
+                    
+                    // Try 3: Original time format
+                    if (!$pair['whatsapp_in']) {
+                        $inKey3 = $baseKey . $pair['in'] . '|IN';
+                        $pair['whatsapp_in'] = $whatsappMap[$inKey3] ?? null;
+                    }
+                }
+                
+                // Check for OUT WhatsApp status
+                if ($pair['out']) {
+                    $baseKey = $dayData['date'] . '|';
+                    $normalizedOutTime = $this->normalizeTime($pair['out']);
+                    
+                    // Try 1: Normalized H:i:s format
+                    $outKey1 = $baseKey . $normalizedOutTime . '|OUT';
+                    $pair['whatsapp_out'] = $whatsappMap[$outKey1] ?? null;
+                    
+                    // Try 2: H:i format (without seconds)
+                    if (!$pair['whatsapp_out'] && strlen($normalizedOutTime) === 8) {
+                        $timeWithoutSeconds = substr($normalizedOutTime, 0, 5);
+                        $outKey2 = $baseKey . $timeWithoutSeconds . '|OUT';
+                        $pair['whatsapp_out'] = $whatsappMap[$outKey2] ?? null;
+                    }
+                    
+                    // Try 3: Original time format
+                    if (!$pair['whatsapp_out']) {
+                        $outKey3 = $baseKey . $pair['out'] . '|OUT';
+                        $pair['whatsapp_out'] = $whatsappMap[$outKey3] ?? null;
+                    }
+                }
+            }
+        }
+
+        return view('attendance.employee', [
+            'employee' => $employee,
+            'roll' => $roll,
+            'daily' => $daily,
+            'raw' => $rawPunches,
+            'whatsappLogs' => $whatsappLogs,
+            'filters' => [
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+            ],
+            'totalDuration' => [
+                'hours' => $totalDurationHours,
+                'minutes' => $totalDurationMinutes,
+            ],
         ]);
     }
 

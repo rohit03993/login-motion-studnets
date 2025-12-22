@@ -107,23 +107,52 @@
         </div>
     </div>
 @else
-<div class="row g-3 mb-3">
-    <div class="col-6 col-md-4">
-        <div class="stat-card live-stat">
-            <div class="stat-label">Total Punches</div>
-            <div class="stat-value">{{ number_format($todayStats['total'] ?? 0) }}</div>
+<!-- Students Statistics Cards -->
+<div class="mb-4">
+    <div class="section-title mb-3"><i class="bi bi-people"></i> Students</div>
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-4">
+            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #10b981, #059669);">
+                <div class="stat-label"><i class="bi bi-box-arrow-in-right"></i> IN</div>
+                <div class="stat-value" style="font-size: 2.5rem;">{{ number_format($studentStats['in'] ?? 0) }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4">
+            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+                <div class="stat-label"><i class="bi bi-box-arrow-right"></i> OUT</div>
+                <div class="stat-value" style="font-size: 2.5rem;">{{ number_format($studentStats['out'] ?? 0) }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4">
+            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #6366f1, #4f46e5);">
+                <div class="stat-label">Total</div>
+                <div class="stat-value" style="font-size: 2.5rem;">{{ number_format($studentStats['total'] ?? 0) }}</div>
+            </div>
         </div>
     </div>
-    <div class="col-6 col-md-4">
-        <div class="stat-card live-stat clickable-stat" data-filter-state="IN" style="cursor: pointer;" title="Click to filter students currently IN">
-            <div class="stat-label"><i class="bi bi-box-arrow-in-right"></i> IN</div>
-            <div class="stat-value">{{ $todayStats['in'] ?? 0 }}</div>
+</div>
+
+<!-- Employees Statistics Cards -->
+<div class="mb-4">
+    <div class="section-title mb-3"><i class="bi bi-briefcase"></i> Employees</div>
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-4">
+            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                <div class="stat-label"><i class="bi bi-box-arrow-in-right"></i> IN</div>
+                <div class="stat-value" style="font-size: 2.5rem;">{{ number_format($employeeStats['in'] ?? 0) }}</div>
+            </div>
         </div>
-    </div>
-    <div class="col-6 col-md-4">
-        <div class="stat-card live-stat clickable-stat" data-filter-state="OUT" style="cursor: pointer;" title="Click to filter students currently OUT">
-            <div class="stat-label"><i class="bi bi-box-arrow-right"></i> OUT</div>
-            <div class="stat-value">{{ $todayStats['out'] ?? 0 }}</div>
+        <div class="col-6 col-md-4">
+            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #ec4899, #db2777);">
+                <div class="stat-label"><i class="bi bi-box-arrow-right"></i> OUT</div>
+                <div class="stat-value" style="font-size: 2.5rem;">{{ number_format($employeeStats['out'] ?? 0) }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4">
+            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+                <div class="stat-label">Total</div>
+                <div class="stat-value" style="font-size: 2.5rem;">{{ number_format($employeeStats['total'] ?? 0) }}</div>
+            </div>
         </div>
     </div>
 </div>
@@ -162,6 +191,10 @@
                         @if($displayName)
                             @if($firstPunch->student_name)
                                 <a href="{{ route('students.show', $rollNumber) }}" class="text-decoration-none text-dark fw-bold">
+                                    {{ $displayName }}
+                                </a>
+                            @elseif($firstPunch->employee_name)
+                                <a href="{{ route('employees.show', $rollNumber) }}" class="text-decoration-none text-dark fw-bold">
                                     {{ $displayName }}
                                 </a>
                             @else

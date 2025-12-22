@@ -113,6 +113,25 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        // VPS Database Connection (for local testing only - never use in production)
+        'vps' => [
+            'driver' => 'mysql',
+            'host' => env('VPS_DB_HOST', '72.60.201.175'),
+            'port' => env('VPS_DB_PORT', '3306'),
+            'database' => env('VPS_DB_DATABASE', 'logintask'),
+            'username' => env('VPS_DB_USERNAME', 'task5login'),
+            'password' => env('VPS_DB_PASSWORD', 'nehapalagra'),
+            'charset' => env('DB_CHARSET', 'utf8mb4'),
+            'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
     ],
 
     /*

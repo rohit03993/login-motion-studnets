@@ -19,6 +19,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Register helper function for punch_logs connection
+        if (!function_exists('getPunchLogsConnection')) {
+            require_once app_path('Helpers/DatabaseHelper.php');
+        }
     }
 }

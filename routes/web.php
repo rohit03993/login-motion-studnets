@@ -87,6 +87,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/students/{roll}', [StudentController::class, 'update'])->name('students.update');
     Route::post('/students/{roll}/contact', [StudentController::class, 'updateContact'])->name('students.updateContact');
 
+    // Employee Profile
+    Route::get('/employees/{roll}', [AttendanceController::class, 'employee'])->name('employees.show');
+
     // Manual Attendance (All authenticated users)
     Route::prefix('manual-attendance')->name('manual-attendance.')->group(function () {
         Route::get('/', [ManualAttendanceController::class, 'index'])->name('index');
