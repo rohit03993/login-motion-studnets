@@ -26,6 +26,8 @@ class ManualAttendanceController extends Controller
     {
         $classCourse = $request->query('class', 'ALL');
         $date = $request->query('date', Carbon::today()->format('Y-m-d'));
+        $rollFilter = $request->query('roll');
+        $nameFilter = $request->query('name');
         $user = auth()->user();
         $isSuper = $user->isSuperAdmin();
         
@@ -38,6 +40,7 @@ class ManualAttendanceController extends Controller
         $courseClasses = Course::orderBy('name')->pluck('name')->toArray();
         $studentClasses = Student::whereNotNull('class_course')
             ->where('class_course', '!=', '')
+            ->whereNull('discontinued_at') // Exclude discontinued
             ->distinct()
             ->orderBy('class_course')
             ->pluck('class_course')
@@ -60,17 +63,19 @@ class ManualAttendanceController extends Controller
             $classes = [$classes];
         }
         
-        // Check if there are students with no class
+        // Check if there are students with no class (excluding discontinued)
         $hasNoClass = Student::where(function($q) {
             $q->whereNull('class_course')->orWhere('class_course', '');
-        })->exists();
+        })
+        ->whereNull('discontinued_at') // Exclude discontinued
+        ->exists();
         
         $presentStudents = collect([]);
         $absentStudents = collect([]);
         
         if ($classCourse && $date) {
-            // Get students based on selection
-            $query = Student::query();
+            // Step 1: Get active (non-discontinued) students
+            $query = Student::query(); // Soft deletes automatically exclude deleted records
             
             if ($classCourse === 'ALL') {
                 // no filter
@@ -85,11 +90,58 @@ class ManualAttendanceController extends Controller
                 $query->whereIn('class_course', $allowed ?? []);
             }
             
-            $allStudents = $query->orderBy('roll_number')->get();
+            // Exclude discontinued students from active list
+            $query->whereNull('discontinued_at');
+            $activeStudents = $query->orderBy('roll_number')->get();
             
-            // For each student, check if they have an IN mark (automatic or manual) for this date
+            // Step 2: Get discontinued students who have attendance marked for this date
+            $discontinuedQuery = Student::withTrashed()
+                ->where(function($q) {
+                    $q->whereNotNull('discontinued_at')
+                      ->orWhereNotNull('deleted_at');
+                });
+            
+            if ($classCourse === 'ALL') {
+                // no filter
+            } elseif ($classCourse === '__no_class__') {
+                $discontinuedQuery->where(function($q) {
+                    $q->whereNull('class_course')->orWhere('class_course', '');
+                });
+            } else {
+                $discontinuedQuery->where('class_course', $classCourse);
+            }
+            if (!$isSuper) {
+                $discontinuedQuery->whereIn('class_course', $allowed ?? []);
+            }
+            
+            $discontinuedStudents = $discontinuedQuery->orderBy('roll_number')->get();
+            
+            // Filter discontinued students to only those with attendance for this date
+            // Also apply roll and name filters
+            $discontinuedWithAttendance = $discontinuedStudents->filter(function($student) use ($date, $rollFilter, $nameFilter) {
+                if (!$this->hasInMark($student->roll_number, $date)) {
+                    return false;
+                }
+                if ($rollFilter && strpos($student->roll_number, $rollFilter) === false) {
+                    return false;
+                }
+                if ($nameFilter) {
+                    $nameMatch = stripos($student->name ?? '', $nameFilter) !== false 
+                              || stripos($student->father_name ?? '', $nameFilter) !== false;
+                    if (!$nameMatch) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            
+            // Step 3: Combine active students and discontinued students with attendance
+            $allStudents = $activeStudents->merge($discontinuedWithAttendance);
+            
+            // Step 4: Process all students (active + discontinued with attendance)
             foreach ($allStudents as $student) {
                 $hasInMark = $this->hasInMark($student->roll_number, $date);
+                $isDiscontinued = ($student->trashed() ?? false) || ($student->discontinued_at ?? false);
                 
                 if ($hasInMark) {
                     // Get IN time (from automatic or manual)
@@ -112,11 +164,16 @@ class ManualAttendanceController extends Controller
                         'has_out' => $hasOut,
                         'whatsapp_in' => $whatsappIn,
                         'whatsapp_out' => $whatsappOut,
+                        'is_discontinued' => $isDiscontinued, // Flag for view
                     ]);
                 } else {
-                    $absentStudents->push([
-                        'student' => $student,
-                    ]);
+                    // Only show in absent list if NOT discontinued
+                    // Discontinued students without attendance should not appear at all
+                    if (!$isDiscontinued) {
+                        $absentStudents->push([
+                            'student' => $student,
+                        ]);
+                    }
                 }
             }
         }
@@ -147,6 +204,16 @@ class ManualAttendanceController extends Controller
         // Get time from input (HH:MM format) and convert to HH:MM:SS
         $timeInput = $request->input('time');
         $time = $timeInput . ':00'; // Add seconds to match database format
+
+        // Prevent manual attendance marking for discontinued students
+        // Existing attendance records remain intact, but new marks are blocked
+        $student = Student::withTrashed()->where('roll_number', $rollNumber)->first();
+        if ($student && ($student->trashed() || $student->discontinued_at)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot mark attendance for discontinued student. Historical records are preserved.',
+            ], 403);
+        }
 
         // Ensure OUT time is not before IN time
         $firstIn = $this->getInTime($rollNumber, $date);
@@ -183,8 +250,7 @@ class ManualAttendanceController extends Controller
             'notes' => 'Manually marked present',
         ]);
         
-        // Get student for WhatsApp
-        $student = Student::where('roll_number', $rollNumber)->first();
+        // Get student for WhatsApp (already fetched above for discontinued check)
         
         // Send WhatsApp if student has phone and alerts enabled
         $whatsappResults = $this->sendWhatsAppToStudent($student, $rollNumber, $date, $time, 'IN', $aisensy);
@@ -312,6 +378,16 @@ class ManualAttendanceController extends Controller
         $timeInput = $request->input('time');
         $time = $timeInput . ':00'; // Add seconds to match database format
         
+        // Prevent manual attendance marking for discontinued students
+        // Existing attendance records remain intact, but new marks are blocked
+        $student = Student::withTrashed()->where('roll_number', $rollNumber)->first();
+        if ($student && ($student->trashed() || $student->discontinued_at)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot mark attendance for discontinued student. Historical records are preserved.',
+            ], 403);
+        }
+        
         // Check if student has IN mark for this date
         if (!$this->hasInMark($rollNumber, $date)) {
             return response()->json([
@@ -342,8 +418,7 @@ class ManualAttendanceController extends Controller
         // Insert into punch_logs so live attendance shows manual OUT
         $this->insertManualPunch($rollNumber, $date, $time, 'OUT');
 
-        // Send WhatsApp for manual OUT
-        $student = Student::where('roll_number', $rollNumber)->first();
+        // Send WhatsApp for manual OUT (student already fetched above for discontinued check)
         $whatsappResults = $this->sendWhatsAppToStudent($student, $rollNumber, $date, $time, 'OUT', $aisensy);
 
         $message = 'Student marked as OUT successfully.';

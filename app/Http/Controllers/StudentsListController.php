@@ -23,7 +23,11 @@ class StudentsListController extends Controller
      */
     public function index(Request $request)
     {
-        $search = $request->query('search');
+        $roll = $request->query('roll');
+        $name = $request->query('name');
+        $classFilter = $request->query('class');
+        $dateFilter = $request->query('date');
+        $search = $request->query('search'); // Keep for backward compatibility
         $batch = $request->query('batch');
         $user = auth()->user();
         $isSuper = method_exists($user, 'isSuperAdmin') ? $user->isSuperAdmin() : false;
@@ -75,6 +79,12 @@ class StudentsListController extends Controller
             $base = DB::query()->fromSub($idsQuery, 'ids')
                 ->leftJoin('students as s', 's.roll_number', '=', 'ids.roll_number');
             
+            // Exclude discontinued students
+            $base->where(function($q) {
+                $q->whereNull('s.discontinued_at')
+                  ->orWhereNull('s.roll_number'); // Include unmapped punches
+            });
+            
             // Exclude employees if employees table exists
             if (!empty($employeesTableExists)) {
                 $base->leftJoin('employees as e', 'e.roll_number', '=', 'ids.roll_number')
@@ -88,7 +98,9 @@ class StudentsListController extends Controller
                     's.class_course',
                     's.batch',
                     's.parent_phone',
-                    's.alerts_enabled'
+                    's.alerts_enabled',
+                    's.deleted_at',
+                    's.discontinued_at'
                 )
                 ->selectSub(function($q) use ($punchesUnified) {
                     $q->fromSub($punchesUnified, 'p')
@@ -132,7 +144,21 @@ class StudentsListController extends Controller
                 }
             }
 
-            if ($search) {
+            // Apply filters: roll, name, class, or legacy search
+            if ($roll) {
+                $base->where('ids.roll_number', 'like', "%{$roll}%");
+            }
+            if ($name) {
+                $base->where(function($q) use ($name) {
+                    $q->where('s.name', 'like', "%{$name}%")
+                      ->orWhere('s.father_name', 'like', "%{$name}%");
+                });
+            }
+            if ($classFilter) {
+                $base->where('s.class_course', $classFilter);
+            }
+            // Legacy search support (backward compatibility)
+            if ($search && !$roll && !$name) {
                 $base->where(function($q) use ($search) {
                     $q->where('ids.roll_number', 'like', "%{$search}%")
                       ->orWhere('s.name', 'like', "%{$search}%")
@@ -146,7 +172,7 @@ class StudentsListController extends Controller
                 ->paginate(50)
                 ->appends($request->query());
 
-            return view('students.list', compact('students', 'search', 'batch', 'batches', 'hasNoBatch'));
+            return view('students.list', compact('students', 'search', 'batch', 'batches', 'hasNoBatch', 'roll', 'name', 'classFilter', 'dateFilter'));
         }
         
         // Get all unique batches for filter dropdown (from students table)

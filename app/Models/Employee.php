@@ -15,10 +15,12 @@ class Employee extends Model
         'category',
         'is_active',
         'user_id',
+        'discontinued_at',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'discontinued_at' => 'datetime',
     ];
 
     /**
@@ -35,5 +37,33 @@ class Employee extends Model
     public function hasLogin(): bool
     {
         return $this->user_id !== null && $this->user !== null;
+    }
+
+    /**
+     * Check if employee is active (not discontinued)
+     */
+    public function isActiveEmployee(): bool
+    {
+        return $this->is_active && $this->discontinued_at === null;
+    }
+
+    /**
+     * Discontinue employee (deactivate with timestamp)
+     */
+    public function discontinue(): bool
+    {
+        $this->is_active = false;
+        $this->discontinued_at = now();
+        return $this->save();
+    }
+
+    /**
+     * Restore discontinued employee
+     */
+    public function restore(): bool
+    {
+        $this->is_active = true;
+        $this->discontinued_at = null;
+        return $this->save();
     }
 }

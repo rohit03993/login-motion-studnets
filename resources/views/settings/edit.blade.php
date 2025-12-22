@@ -107,11 +107,17 @@
 <div class="brand-card">
     <div class="section-title mb-2">Data Admin (Super Admin)</div>
     <div class="muted mb-3">Reset/seed and clear logs without running CLI.</div>
-    <div class="d-flex flex-column flex-md-row gap-2">
+    <div class="d-flex flex-column flex-md-row gap-2 flex-wrap">
         <form method="POST" action="{{ route('data-admin.reset-students') }}" onsubmit="return confirm('This will truncate students and manual attendance. Continue?');">
             @csrf
             <button type="submit" class="btn btn-danger">
                 <i class="bi bi-trash"></i> Reset Students & Manual Attendance
+            </button>
+        </form>
+        <form method="POST" action="{{ route('data-admin.reset-employees') }}" onsubmit="return confirm('This will delete ALL employees and their login credentials. This action cannot be undone. Continue?');">
+            @csrf
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-person-x"></i> Reset Employees
             </button>
         </form>
         <form method="POST" action="{{ route('data-admin.seed-defaults') }}">

@@ -8,6 +8,14 @@
             <div class="d-flex align-items-center gap-3 mb-2">
                 <div class="section-title mb-0">
                     <i class="bi bi-person-circle"></i> Employee Profile
+                    @php
+                        $isDiscontinued = ($employee->discontinued_at ?? false) || (!$employee->is_active ?? false);
+                    @endphp
+                    @if($isDiscontinued)
+                        <span class="badge bg-warning text-dark ms-2">
+                            <i class="bi bi-x-circle"></i> Discontinued
+                        </span>
+                    @endif
                 </div>
                 <a href="{{ url('/attendance') }}" class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-arrow-left"></i> Back
@@ -109,6 +117,44 @@
             </div>
         </div>
     </div>
+    
+    @if(auth()->user()->isSuperAdmin())
+    <!-- Discontinue/Restore Actions (Super Admin Only) -->
+    <div class="mt-4 pt-3 border-top">
+        <div class="d-flex align-items-center gap-2">
+            <div class="muted small">Account Status:</div>
+            @php
+                $isDiscontinued = ($employee->discontinued_at ?? false) || (!$employee->is_active ?? false);
+            @endphp
+            @if($isDiscontinued)
+                <span class="badge bg-warning text-dark">
+                    <i class="bi bi-x-circle"></i> Discontinued
+                    @if($employee->discontinued_at)
+                        <small>({{ \Carbon\Carbon::parse($employee->discontinued_at)->format('M d, Y') }})</small>
+                    @endif
+                </span>
+                <form method="POST" action="{{ route('employees.restore', $roll) }}" style="display: inline;" class="ms-auto">
+                    @csrf
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="bi bi-arrow-counterclockwise"></i> Restore Employee
+                    </button>
+                </form>
+            @else
+                <span class="badge bg-success">
+                    <i class="bi bi-check-circle"></i> Active
+                </span>
+                <form method="POST" action="{{ route('employees.discontinue', $roll) }}" 
+                      onsubmit="return confirm('Discontinue this employee? They will not appear in employee lists, but historical records will be preserved.');" 
+                      style="display: inline;" class="ms-auto">
+                    @csrf
+                    <button type="submit" class="btn btn-warning btn-sm">
+                        <i class="bi bi-x-circle"></i> Discontinue Employee
+                    </button>
+                </form>
+            @endif
+        </div>
+    </div>
+    @endif
 </div>
 
 <!-- Daily Attendance Timeline -->

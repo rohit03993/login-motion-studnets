@@ -16,7 +16,12 @@ class EmployeeController extends Controller
 {
     public function index(): View
     {
-        $employees = Employee::with('user.classPermissions')->orderBy('name')->get();
+        // Show only active employees (not discontinued)
+        $employees = Employee::with('user.classPermissions')
+            ->where('is_active', true)
+            ->whereNull('discontinued_at')
+            ->orderBy('name')
+            ->get();
         $courses = Course::where('is_active', true)->orderBy('name')->get();
         return view('employees.index', compact('employees', 'courses'));
     }
@@ -168,5 +173,28 @@ class EmployeeController extends Controller
             'success' => true,
             'message' => 'Permissions updated successfully.',
         ]);
+    }
+
+    /**
+     * Discontinue an employee
+     * Employee will not appear in lists but historical records remain
+     */
+    public function discontinue(string $roll): RedirectResponse
+    {
+        $employee = Employee::where('roll_number', $roll)->firstOrFail();
+        $employee->discontinue();
+        
+        return back()->with('success', "Employee '{$employee->name}' has been discontinued. They will not appear in employee lists, but historical records are preserved.");
+    }
+
+    /**
+     * Restore a discontinued employee
+     */
+    public function restore(string $roll): RedirectResponse
+    {
+        $employee = Employee::where('roll_number', $roll)->firstOrFail();
+        $employee->restore();
+        
+        return back()->with('success', "Employee '{$employee->name}' has been restored and will appear in employee lists again.");
     }
 }

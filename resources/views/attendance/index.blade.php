@@ -69,24 +69,39 @@
 
 <div class="brand-card mb-3 filters-card">
     <div class="section-title mb-3"><i class="bi bi-funnel"></i> Filters</div>
-    <form class="row gy-2 gx-2 align-items-end" method="get" action="{{ url('/attendance') }}">
-        <div class="col-12 col-md-4">
+    <form class="row gy-2 gx-2 align-items-end" method="get" action="{{ url($isEmployeeView ? '/employees/attendance' : '/attendance') }}">
+        <div class="col-12 col-md-3">
             <label class="form-label"><i class="bi bi-person-badge"></i> Roll / Employee ID</label>
-            <input type="text" name="roll" value="{{ $filters['roll'] ?? '' }}" class="form-control" placeholder="e.g. 25175000xxx">
-        </div>
-        <div class="col-12 col-md-4">
-            <label class="form-label"><i class="bi bi-person"></i> Name (partial)</label>
-            <input type="text" name="name" value="{{ $filters['name'] ?? '' }}" class="form-control" placeholder="Student name">
+            <input type="text" name="roll" value="{{ isset($filters['roll']) && !empty($filters['roll']) ? $filters['roll'] : '' }}" class="form-control" placeholder="" autocomplete="off">
         </div>
         <div class="col-12 col-md-3">
+            <label class="form-label"><i class="bi bi-person"></i> Name (partial)</label>
+            <input type="text" name="name" value="{{ $filters['name'] ?? '' }}" class="form-control" placeholder="Enter name">
+        </div>
+        @if(!$isEmployeeView)
+        <div class="col-12 col-md-2">
+            <label class="form-label"><i class="bi bi-book"></i> Class</label>
+            <select name="class" class="form-select">
+                <option value="">All Classes</option>
+                @if(isset($courses) && is_iterable($courses))
+                    @foreach($courses as $course)
+                        <option value="{{ $course->name ?? '' }}" {{ ($filters['class'] ?? '') === ($course->name ?? '') ? 'selected' : '' }}>
+                            {{ $course->name ?? '' }}
+                        </option>
+                    @endforeach
+                @endif
+            </select>
+        </div>
+        @endif
+        <div class="col-12 col-md-2">
             <label class="form-label"><i class="bi bi-calendar-event"></i> Date</label>
             <input type="date" name="date" value="{{ $filters['date'] ?? date('Y-m-d') }}" class="form-control" max="{{ date('Y-m-d') }}">
         </div>
-        <div class="col-auto">
-            <button class="btn btn-primary"><i class="bi bi-search"></i> Filter</button>
+        <div class="col-12 col-md-2">
+            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Filter</button>
         </div>
-        <div class="col-auto">
-            <a class="btn btn-outline-secondary" href="{{ url('/attendance') }}"><i class="bi bi-arrow-clockwise"></i> Reset</a>
+        <div class="col-12 col-md-2">
+            <a class="btn btn-outline-secondary w-100" href="{{ url($isEmployeeView ? '/employees/attendance' : '/attendance') }}"><i class="bi bi-arrow-clockwise"></i> Reset</a>
         </div>
     </form>
 </div>
@@ -107,7 +122,8 @@
         </div>
     </div>
 @else
-<!-- Students Statistics Cards -->
+<!-- Students Statistics Cards (Hidden in Employee View) -->
+@if(!$isEmployeeView)
 <div class="mb-4">
     <div class="section-title mb-3"><i class="bi bi-people"></i> Students</div>
     <div class="row g-3 mb-3">
@@ -131,6 +147,7 @@
         </div>
     </div>
 </div>
+@endif
 
 <!-- Employees Statistics Cards -->
 <div class="mb-4">
@@ -193,10 +210,20 @@
                                 <a href="{{ route('students.show', $rollNumber) }}" class="text-decoration-none text-dark fw-bold">
                                     {{ $displayName }}
                                 </a>
+                                @if($firstPunch->student_deleted_at || $firstPunch->student_discontinued_at)
+                                    <span class="badge bg-warning text-dark ms-2" title="Discontinued">
+                                        <i class="bi bi-x-circle"></i> Discontinued
+                                    </span>
+                                @endif
                             @elseif($firstPunch->employee_name)
                                 <a href="{{ route('employees.show', $rollNumber) }}" class="text-decoration-none text-dark fw-bold">
                                     {{ $displayName }}
                                 </a>
+                                @if($firstPunch->employee_discontinued_at || !$firstPunch->employee_is_active)
+                                    <span class="badge bg-warning text-dark ms-2" title="Discontinued">
+                                        <i class="bi bi-x-circle"></i> Discontinued
+                                    </span>
+                                @endif
                             @else
                                 <span class="fw-bold text-dark">{{ $displayName }}</span>
                             @endif

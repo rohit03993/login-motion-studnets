@@ -12,14 +12,23 @@
     </div>
 </div>
 
-<div class="brand-card mb-3">
+<div class="brand-card mb-3" style="background: linear-gradient(135deg, #ecfeff, #eef2ff); border: 1px solid #e0f2fe; box-shadow: 0 10px 30px rgba(15,23,42,0.06);">
+    <div class="section-title mb-3"><i class="bi bi-funnel"></i> Filters</div>
     <form method="GET" action="{{ route('manual-attendance.index') }}" class="row g-2 align-items-end">
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-2">
+            <label class="form-label"><i class="bi bi-person-badge"></i> Roll Number</label>
+            <input type="text" name="roll" value="{{ request('roll') }}" class="form-control" placeholder="">
+        </div>
+        <div class="col-12 col-md-2">
+            <label class="form-label"><i class="bi bi-person"></i> Name</label>
+            <input type="text" name="name" value="{{ request('name') }}" class="form-control" placeholder="Enter name">
+        </div>
+        <div class="col-12 col-md-3">
             <label class="form-label"><i class="bi bi-calendar"></i> Date</label>
             <input type="date" name="date" value="{{ $date }}" class="form-control" required>
         </div>
-        <div class="col-12 col-md-6">
-            <label class="form-label"><i class="bi bi-funnel"></i> Class</label>
+        <div class="col-12 col-md-3">
+            <label class="form-label"><i class="bi bi-book"></i> Class</label>
             <select name="class" class="form-select">
                 <option value="ALL" {{ $classCourse === 'ALL' ? 'selected' : '' }}>All Classes</option>
                 @if($hasNoClass)
@@ -39,6 +48,13 @@
                 <i class="bi bi-search"></i> Load
             </button>
         </div>
+        @if(request('roll') || request('name'))
+            <div class="col-12 col-md-2">
+                <a href="{{ route('manual-attendance.index', ['date' => $date, 'class' => $classCourse]) }}" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-arrow-clockwise"></i> Reset
+                </a>
+            </div>
+        @endif
     </form>
 </div>
 
@@ -76,7 +92,14 @@
                                 @foreach($presentStudents as $item)
                                     <tr>
                                         <td class="fw-medium">{{ $item['student']->roll_number }}</td>
-                                        <td>{{ $item['student']->name ?? 'N/A' }}</td>
+                                        <td>
+                                            {{ $item['student']->name ?? 'N/A' }}
+                                            @if(($item['is_discontinued'] ?? false) || ($item['student']->deleted_at ?? false) || ($item['student']->discontinued_at ?? false))
+                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.7rem;">
+                                                    <i class="bi bi-x-circle"></i> Discontinued
+                                                </span>
+                                            @endif
+                                        </td>
                                         <td>
                                             <div>
                                                 {{ $item['in_time'] ?? 'N/A' }}
@@ -166,7 +189,14 @@
                                 @foreach($absentStudents as $item)
                                     <tr>
                                         <td class="fw-medium">{{ $item['student']->roll_number }}</td>
-                                        <td>{{ $item['student']->name ?? 'N/A' }}</td>
+                                        <td>
+                                            {{ $item['student']->name ?? 'N/A' }}
+                                            @if(($item['student']->deleted_at ?? false) || ($item['student']->discontinued_at ?? false))
+                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.7rem;">
+                                                    <i class="bi bi-x-circle"></i> Discontinued
+                                                </span>
+                                            @endif
+                                        </td>
                                         <td>{{ $item['student']->parent_phone ?? 'N/A' }}</td>
                                         <td>
                                             <button class="btn btn-sm btn-success mark-present-btn" 

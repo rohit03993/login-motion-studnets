@@ -24,23 +24,50 @@
     @endif
 </div>
 
-<div class="brand-card mb-3">
+<div class="brand-card mb-3" style="background: linear-gradient(135deg, #ecfeff, #eef2ff); border: 1px solid #e0f2fe; box-shadow: 0 10px 30px rgba(15,23,42,0.06);">
+    <div class="section-title mb-3"><i class="bi bi-funnel"></i> Filters</div>
     <form method="GET" action="{{ route('students.index') }}" class="row g-2 align-items-end">
-        <div class="col-12 col-md-6">
-            <label class="form-label"><i class="bi bi-search"></i> Search</label>
-            <input type="text" name="search" value="{{ $search }}" class="form-control" 
-                   placeholder="Search by roll number, name, father's name, or phone...">
+        <div class="col-12 col-md-3">
+            <label class="form-label"><i class="bi bi-person-badge"></i> Roll Number</label>
+            <input type="text" name="roll" value="{{ request('roll') }}" class="form-control" placeholder="">
         </div>
-        {{-- Batch filter removed --}}
+        <div class="col-12 col-md-3">
+            <label class="form-label"><i class="bi bi-person"></i> Name</label>
+            <input type="text" name="name" value="{{ request('name') }}" class="form-control" placeholder="Enter name">
+        </div>
         <div class="col-12 col-md-2">
-            <button type="submit" class="btn btn-primary w-100">
-                <i class="bi bi-search"></i> Search
-            </button>
+            <label class="form-label"><i class="bi bi-book"></i> Class</label>
+            <select name="class" class="form-select">
+                <option value="">All Classes</option>
+                @php
+                    $courseClasses = \App\Models\Course::orderBy('name')->pluck('name')->toArray();
+                    $studentClasses = \App\Models\Student::whereNotNull('class_course')
+                        ->where('class_course', '!=', '')
+                        ->whereNull('discontinued_at')
+                        ->distinct()
+                        ->orderBy('class_course')
+                        ->pluck('class_course')
+                        ->toArray();
+                    $allClasses = collect($courseClasses)->merge($studentClasses)->unique()->sort()->values()->toArray();
+                @endphp
+                @foreach($allClasses as $cls)
+                    <option value="{{ $cls }}" {{ request('class') === $cls ? 'selected' : '' }}>
+                        {{ $cls }}
+                    </option>
+                @endforeach
+            </select>
         </div>
-        @if($search || $batch)
-            <div class="col-12">
-                <a href="{{ route('students.index') }}" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-x-circle"></i> Clear Filters
+        <div class="col-12 col-md-2">
+            <label class="form-label"><i class="bi bi-calendar-event"></i> Date</label>
+            <input type="date" name="date" value="{{ request('date') }}" class="form-control" max="{{ date('Y-m-d') }}">
+        </div>
+        <div class="col-12 col-md-2">
+            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Filter</button>
+        </div>
+        @if(request('roll') || request('name') || request('class') || request('date'))
+            <div class="col-12 col-md-2">
+                <a href="{{ route('students.index') }}" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-arrow-clockwise"></i> Reset
                 </a>
             </div>
         @endif
@@ -158,6 +185,11 @@
                                 <a href="{{ route('students.show', $student->roll_number) }}" class="text-decoration-none fw-medium" style="color: var(--brand-accent-2);">
                                     {{ $student->name }}
                                 </a>
+                                @if($student->deleted_at || $student->discontinued_at)
+                                    <br><small class="badge bg-warning text-dark" style="font-size: 0.7rem;">
+                                        <i class="bi bi-x-circle"></i> Discontinued
+                                    </small>
+                                @endif
                             @else
                                 <span class="text-muted">—</span>
                             @endif

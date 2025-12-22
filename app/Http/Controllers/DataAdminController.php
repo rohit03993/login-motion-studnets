@@ -57,4 +57,40 @@ class DataAdminController extends Controller
         }
         return back()->with('status', 'whatsapp_logs table not found; skipped.');
     }
+
+    public function resetEmployees(): RedirectResponse
+    {
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        
+        // Get all employee user IDs before deleting employees
+        $employeeUserIds = DB::table('employees')
+            ->whereNotNull('user_id')
+            ->pluck('user_id')
+            ->toArray();
+        
+        // Delete user class permissions for employee users
+        if (!empty($employeeUserIds)) {
+            DB::table('user_class_permissions')
+                ->whereIn('user_id', $employeeUserIds)
+                ->delete();
+        }
+        
+        // Truncate employees table (this will also unlink user_id due to foreign key)
+        if (Schema::hasTable('employees')) {
+            DB::table('employees')->truncate();
+        }
+        
+        // Delete the associated user accounts (staff users linked to employees)
+        if (!empty($employeeUserIds)) {
+            // Only delete users with role 'staff' to avoid deleting super admins
+            DB::table('users')
+                ->whereIn('id', $employeeUserIds)
+                ->where('role', 'staff')
+                ->delete();
+        }
+        
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        
+        return back()->with('status', 'Employees reset successfully. All employee records, login credentials, and permissions have been removed.');
+    }
 }

@@ -48,12 +48,14 @@ class AttendanceController extends Controller
                 'rows' => $emptyPaginator,
                 'groupedRows' => collect([]),
                 'studentPairs' => [],
-                'filters' => [
-                    'roll' => $roll,
-                    'name' => $name,
-                    'date_from' => $dateFrom,
-                    'date_to' => $dateTo,
-                ],
+            'filters' => [
+                'roll' => $roll ?: null, // Only set if explicitly provided
+                'name' => $name ?: null, // Only set if explicitly provided
+                'class' => $classFilter ?: null,
+                'date' => $date,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+            ],
                 'studentStats' => ['total' => 0, 'in' => 0, 'out' => 0],
                 'employeeStats' => ['total' => 0, 'in' => 0, 'out' => 0],
                 'durationTotals' => [
@@ -67,6 +69,7 @@ class AttendanceController extends Controller
         
         $roll = $request->query('roll');
         $name = $request->query('name');
+        $classFilter = $request->query('class'); // Class filter
         $today = Carbon::today()->format('Y-m-d');
         $date = $request->query('date');
         $filterState = $request->query('filter_state'); // 'IN' or 'OUT' or null
@@ -168,8 +171,12 @@ class AttendanceController extends Controller
                 's.name as student_name',
                 's.class_course',
                 's.parent_phone',
+                's.deleted_at as student_deleted_at',
+                's.discontinued_at as student_discontinued_at',
                 'e.name as employee_name',
                 'e.category as employee_category',
+                'e.discontinued_at as employee_discontinued_at',
+                'e.is_active as employee_is_active',
                 'w.status as whatsapp_status',
                 'w.error as whatsapp_error',
                 'w.sent_at as whatsapp_sent_at',
@@ -599,9 +606,12 @@ class AttendanceController extends Controller
         $employeeStats = ['total' => 0, 'in' => 0, 'out' => 0];
         $durationByRoll = [];
         
-        // Get all student and employee roll numbers for quick lookup
-        $allStudentRolls = Student::pluck('roll_number')->toArray();
-        $allEmployeeRolls = Employee::pluck('roll_number')->toArray();
+        // Get all student and employee roll numbers for quick lookup (exclude discontinued)
+        $allStudentRolls = Student::whereNull('discontinued_at')->pluck('roll_number')->toArray();
+        $allEmployeeRolls = Employee::where('is_active', true)
+            ->whereNull('discontinued_at')
+            ->pluck('roll_number')
+            ->toArray();
         
         // Count from all grouped rows (not just paginated ones) to get accurate totals
         foreach ($allGroupedRows as $rollNumber => $studentPunches) {
@@ -670,8 +680,9 @@ class AttendanceController extends Controller
             'allowedClasses' => $allowedClasses,
             'canViewEmployees' => $canViewEmployees,
             'filters' => [
-                'roll' => $roll,
-                'name' => $name,
+                'roll' => $roll ?: null, // Only set if explicitly provided
+                'name' => $name ?: null, // Only set if explicitly provided
+                'class' => $classFilter ?: null,
                 'date' => $date,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
@@ -710,7 +721,8 @@ class AttendanceController extends Controller
             $dateTo = $minDate;
         }
 
-        $student = Student::where('roll_number', $roll)->first();
+        // Allow viewing discontinued students (withTrashed) for historical data
+        $student = Student::withTrashed()->where('roll_number', $roll)->first();
         // If no mapping yet, create an in-memory placeholder so the page still renders blanks.
         if (!$student) {
             $student = new Student([
@@ -926,6 +938,7 @@ class AttendanceController extends Controller
             $dateTo = $minDate;
         }
 
+        // Allow viewing discontinued employees for historical data
         $employee = Employee::where('roll_number', $roll)->first();
         // If no mapping yet, create an in-memory placeholder so the page still renders blanks.
         if (!$employee) {
@@ -1765,6 +1778,7 @@ class AttendanceController extends Controller
             $filteredStudents = DB::table('students')
                 ->where('name', 'like', "%{$name}%")
                 ->whereIn('roll_number', $students)
+                ->whereNull('discontinued_at') // Exclude discontinued
                 ->pluck('roll_number')
                 ->map(function($r) { return (string)$r; })
                 ->toArray();

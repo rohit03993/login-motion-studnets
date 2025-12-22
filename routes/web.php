@@ -60,6 +60,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/bulk-assign-class', [StudentsListController::class, 'bulkAssignClass'])->name('bulk-assign-class');
         Route::post('/bulk-assign-batch', [StudentsListController::class, 'bulkAssignBatch'])->name('bulk-assign-batch');
         Route::post('/import', [StudentsListController::class, 'import'])->name('import');
+        Route::post('/{roll}/discontinue', [StudentController::class, 'discontinue'])->name('discontinue');
+        Route::post('/{roll}/restore', [StudentController::class, 'restore'])->name('restore');
     });
 
     // Employees management (Super Admin)
@@ -68,6 +70,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/', [EmployeeController::class, 'store'])->name('store');
         Route::post('/{roll}/generate-login', [EmployeeController::class, 'generateLogin'])->name('generate-login');
         Route::post('/{roll}/update-permissions', [EmployeeController::class, 'updatePermissions'])->name('update-permissions');
+        Route::post('/{roll}/discontinue', [EmployeeController::class, 'discontinue'])->name('discontinue');
+        Route::post('/{roll}/restore', [EmployeeController::class, 'restore'])->name('restore');
     });
 
     // Quick-create employee from unmapped punch (all authenticated)
@@ -76,6 +80,7 @@ Route::middleware('auth')->group(function () {
     // Data admin (Super Admin)
     Route::prefix('admin/data')->middleware('superadmin')->name('data-admin.')->group(function () {
         Route::post('/reset-students', [DataAdminController::class, 'reset'])->name('reset-students');
+        Route::post('/reset-employees', [DataAdminController::class, 'resetEmployees'])->name('reset-employees');
         Route::post('/seed-defaults', [DataAdminController::class, 'seedDefaults'])->name('seed-defaults');
         Route::post('/clear-punch-logs', [DataAdminController::class, 'clearPunchLogs'])->name('clear-punch-logs');
         Route::post('/clear-whatsapp-logs', [DataAdminController::class, 'clearWhatsappLogs'])->name('clear-whatsapp-logs');

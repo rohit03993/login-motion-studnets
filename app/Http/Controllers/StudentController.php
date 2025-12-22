@@ -167,6 +167,29 @@ class StudentController extends Controller
     }
 
     /**
+     * Discontinue a student (soft delete)
+     * Student will not appear in manual attendance but historical records remain
+     */
+    public function discontinue(string $roll): RedirectResponse
+    {
+        $student = Student::where('roll_number', $roll)->firstOrFail();
+        $student->discontinue();
+        
+        return back()->with('success', "Student '{$student->name}' has been discontinued. They will not appear in manual attendance, but historical records are preserved.");
+    }
+
+    /**
+     * Restore a discontinued student
+     */
+    public function restore(string $roll): RedirectResponse
+    {
+        $student = Student::withTrashed()->where('roll_number', $roll)->firstOrFail();
+        $student->restore();
+        
+        return back()->with('success', "Student '{$student->name}' has been restored and will appear in manual attendance again.");
+    }
+
+    /**
      * Ensure default course and batch exist for fallback assignments.
      */
     private function ensureDefaultBucket(): void

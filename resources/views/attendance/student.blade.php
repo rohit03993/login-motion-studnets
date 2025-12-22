@@ -8,6 +8,14 @@
             <div class="d-flex align-items-center gap-3 mb-2">
                 <div class="section-title mb-0">
                     <i class="bi bi-person-circle"></i> Student Profile
+                    @php
+                        $isDiscontinued = ($student->trashed() ?? false) || ($student->discontinued_at ?? false);
+                    @endphp
+                    @if($isDiscontinued)
+                        <span class="badge bg-warning text-dark ms-2">
+                            <i class="bi bi-x-circle"></i> Discontinued
+                        </span>
+                    @endif
                 </div>
                 <a href="{{ url('/attendance') }}" class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-arrow-left"></i> Back
@@ -147,6 +155,44 @@
             </div>
         </div>
     </div>
+    
+    @if(auth()->user()->isSuperAdmin())
+    <!-- Discontinue/Restore Actions (Super Admin Only) -->
+    <div class="mt-4 pt-3 border-top">
+        <div class="d-flex align-items-center gap-2">
+            <div class="muted small">Account Status:</div>
+            @php
+                $isDiscontinued = ($student->trashed() ?? false) || ($student->discontinued_at ?? false);
+            @endphp
+            @if($isDiscontinued)
+                <span class="badge bg-warning text-dark">
+                    <i class="bi bi-x-circle"></i> Discontinued
+                    @if($student->discontinued_at)
+                        <small>({{ \Carbon\Carbon::parse($student->discontinued_at)->format('M d, Y') }})</small>
+                    @endif
+                </span>
+                <form method="POST" action="{{ route('students.restore', $roll) }}" style="display: inline;" class="ms-auto">
+                    @csrf
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="bi bi-arrow-counterclockwise"></i> Restore Student
+                    </button>
+                </form>
+            @else
+                <span class="badge bg-success">
+                    <i class="bi bi-check-circle"></i> Active
+                </span>
+                <form method="POST" action="{{ route('students.discontinue', $roll) }}" 
+                      onsubmit="return confirm('Discontinue this student? They will not appear in manual attendance, but historical records will be preserved.');" 
+                      style="display: inline;" class="ms-auto">
+                    @csrf
+                    <button type="submit" class="btn btn-warning btn-sm">
+                        <i class="bi bi-x-circle"></i> Discontinue Student
+                    </button>
+                </form>
+            @endif
+        </div>
+    </div>
+    @endif
     
     <!-- Edit Form (Hidden by default) -->
     <form method="post" action="{{ route('students.update', $roll) }}" id="studentInfoForm" class="row gy-2 gx-2" style="display: none;">

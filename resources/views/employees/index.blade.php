@@ -130,14 +130,17 @@
                                 @endif
                             </td>
                             <td>
-                                @if($emp->is_active)
+                                @if($emp->discontinued_at)
+                                    <span class="badge bg-warning">Discontinued</span>
+                                    <br><small class="text-muted">{{ \Carbon\Carbon::parse($emp->discontinued_at)->format('M d, Y') }}</small>
+                                @elseif($emp->is_active)
                                     <span class="badge bg-success">Active</span>
                                 @else
                                     <span class="badge bg-secondary">Inactive</span>
                                 @endif
                             </td>
                             <td>
-                                <div class="d-flex gap-1">
+                                <div class="d-flex gap-1 flex-wrap">
                                     @if(!$hasLogin)
                                         <button type="button" class="btn btn-sm btn-success" onclick="openGenerateLoginModal('{{ $emp->roll_number }}', '{{ addslashes($emp->name) }}')">
                                             <i class="bi bi-key"></i> Generate Login
