@@ -79,11 +79,9 @@ class StudentsListController extends Controller
             $base = DB::query()->fromSub($idsQuery, 'ids')
                 ->leftJoin('students as s', 's.roll_number', '=', 'ids.roll_number');
             
-            // Exclude discontinued students
-            $base->where(function($q) {
-                $q->whereNull('s.discontinued_at')
-                  ->orWhereNull('s.roll_number'); // Include unmapped punches
-            });
+            // Include all students (active and discontinued) - only exclude if student record doesn't exist
+            // Allow unmapped punches (where s.roll_number is null) to show
+            // This way we see all students including discontinued ones
             
             // Exclude employees if employees table exists
             if (!empty($employeesTableExists)) {
@@ -190,8 +188,9 @@ class StudentsListController extends Controller
 
         // Base query (no punch logs path)
         // Exclude employees - ensure roll_number doesn't exist in employees table
+        // Include ALL students (active and discontinued) - use withTrashed to include soft-deleted
         $employeesTableExists = DB::select("SHOW TABLES LIKE 'employees'");
-        $query = Student::query();
+        $query = Student::withTrashed(); // Include discontinued (soft-deleted) students
         if (!empty($employeesTableExists)) {
             $employeeRollNumbers = DB::table('employees')->pluck('roll_number')->toArray();
             if (!empty($employeeRollNumbers)) {

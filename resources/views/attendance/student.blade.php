@@ -171,12 +171,23 @@
                         <small>({{ \Carbon\Carbon::parse($student->discontinued_at)->format('M d, Y') }})</small>
                     @endif
                 </span>
-                <form method="POST" action="{{ route('students.restore', $roll) }}" style="display: inline;" class="ms-auto">
-                    @csrf
-                    <button type="submit" class="btn btn-success btn-sm">
-                        <i class="bi bi-arrow-counterclockwise"></i> Restore Student
-                    </button>
-                </form>
+                <div class="ms-auto d-flex gap-2">
+                    <form method="POST" action="{{ route('students.restore', $roll) }}" style="display: inline;">
+                        @csrf
+                        <button type="submit" class="btn btn-success btn-sm">
+                            <i class="bi bi-arrow-counterclockwise"></i> Restore Student
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ route('students.delete-permanent', $roll) }}" 
+                          onsubmit="return confirm('⚠️ WARNING: This will PERMANENTLY DELETE all data for this student including:\n\n- Student record\n- All punch logs\n- All manual attendance records\n- All WhatsApp logs\n- All notification queue entries\n\nThis action CANNOT be undone. Are you absolutely sure?');" 
+                          style="display: inline;">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-danger btn-sm">
+                            <i class="bi bi-trash"></i> Delete Permanently
+                        </button>
+                    </form>
+                </div>
             @else
                 <span class="badge bg-success">
                     <i class="bi bi-check-circle"></i> Active

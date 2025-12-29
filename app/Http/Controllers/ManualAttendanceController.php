@@ -90,58 +90,26 @@ class ManualAttendanceController extends Controller
                 $query->whereIn('class_course', $allowed ?? []);
             }
             
-            // Exclude discontinued students from active list
+            // Exclude discontinued students completely from manual attendance
+            // Only active (non-discontinued) students should appear
             $query->whereNull('discontinued_at');
-            $activeStudents = $query->orderBy('roll_number')->get();
             
-            // Step 2: Get discontinued students who have attendance marked for this date
-            $discontinuedQuery = Student::withTrashed()
-                ->where(function($q) {
-                    $q->whereNotNull('discontinued_at')
-                      ->orWhereNotNull('deleted_at');
-                });
-            
-            if ($classCourse === 'ALL') {
-                // no filter
-            } elseif ($classCourse === '__no_class__') {
-                $discontinuedQuery->where(function($q) {
-                    $q->whereNull('class_course')->orWhere('class_course', '');
-                });
-            } else {
-                $discontinuedQuery->where('class_course', $classCourse);
+            // Apply roll and name filters
+            if ($rollFilter) {
+                $query->where('roll_number', 'like', "%{$rollFilter}%");
             }
-            if (!$isSuper) {
-                $discontinuedQuery->whereIn('class_course', $allowed ?? []);
+            if ($nameFilter) {
+                $query->where(function($q) use ($nameFilter) {
+                    $q->where('name', 'like', "%{$nameFilter}%")
+                      ->orWhere('father_name', 'like', "%{$nameFilter}%");
+                });
             }
             
-            $discontinuedStudents = $discontinuedQuery->orderBy('roll_number')->get();
+            $allStudents = $query->orderBy('roll_number')->get();
             
-            // Filter discontinued students to only those with attendance for this date
-            // Also apply roll and name filters
-            $discontinuedWithAttendance = $discontinuedStudents->filter(function($student) use ($date, $rollFilter, $nameFilter) {
-                if (!$this->hasInMark($student->roll_number, $date)) {
-                    return false;
-                }
-                if ($rollFilter && strpos($student->roll_number, $rollFilter) === false) {
-                    return false;
-                }
-                if ($nameFilter) {
-                    $nameMatch = stripos($student->name ?? '', $nameFilter) !== false 
-                              || stripos($student->father_name ?? '', $nameFilter) !== false;
-                    if (!$nameMatch) {
-                        return false;
-                    }
-                }
-                return true;
-            });
-            
-            // Step 3: Combine active students and discontinued students with attendance
-            $allStudents = $activeStudents->merge($discontinuedWithAttendance);
-            
-            // Step 4: Process all students (active + discontinued with attendance)
+            // Process only active students (discontinued are completely excluded)
             foreach ($allStudents as $student) {
                 $hasInMark = $this->hasInMark($student->roll_number, $date);
-                $isDiscontinued = ($student->trashed() ?? false) || ($student->discontinued_at ?? false);
                 
                 if ($hasInMark) {
                     // Get IN time (from automatic or manual)
@@ -164,16 +132,12 @@ class ManualAttendanceController extends Controller
                         'has_out' => $hasOut,
                         'whatsapp_in' => $whatsappIn,
                         'whatsapp_out' => $whatsappOut,
-                        'is_discontinued' => $isDiscontinued, // Flag for view
                     ]);
                 } else {
-                    // Only show in absent list if NOT discontinued
-                    // Discontinued students without attendance should not appear at all
-                    if (!$isDiscontinued) {
-                        $absentStudents->push([
-                            'student' => $student,
-                        ]);
-                    }
+                    // Show in absent list
+                    $absentStudents->push([
+                        'student' => $student,
+                    ]);
                 }
             }
         }

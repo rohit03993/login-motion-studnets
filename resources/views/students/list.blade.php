@@ -179,6 +179,11 @@
                             @if($student->class_course)
                                 <br><small class="text-muted">{{ $student->class_course }}</small>
                             @endif
+                            @if($student->deleted_at || $student->discontinued_at)
+                                <br><small class="badge bg-warning text-dark" style="font-size: 0.7rem;">
+                                    <i class="bi bi-x-circle"></i> Discontinued
+                                </small>
+                            @endif
                         </td>
                         <td>
                             @if($student->name)

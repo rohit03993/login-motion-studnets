@@ -62,6 +62,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/import', [StudentsListController::class, 'import'])->name('import');
         Route::post('/{roll}/discontinue', [StudentController::class, 'discontinue'])->name('discontinue');
         Route::post('/{roll}/restore', [StudentController::class, 'restore'])->name('restore');
+        Route::delete('/{roll}/delete-permanent', [StudentController::class, 'deletePermanent'])->name('delete-permanent');
     });
 
     // Employees management (Super Admin)

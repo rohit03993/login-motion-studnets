@@ -91,14 +91,15 @@
                             <tbody>
                                 @foreach($presentStudents as $item)
                                     <tr>
-                                        <td class="fw-medium">{{ $item['student']->roll_number }}</td>
+                                        <td class="fw-medium">
+                                            <a href="{{ route('students.show', $item['student']->roll_number) }}" class="text-decoration-none fw-medium" style="color: var(--brand-accent-2);">
+                                                {{ $item['student']->roll_number }}
+                                            </a>
+                                        </td>
                                         <td>
-                                            {{ $item['student']->name ?? 'N/A' }}
-                                            @if(($item['is_discontinued'] ?? false) || ($item['student']->deleted_at ?? false) || ($item['student']->discontinued_at ?? false))
-                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.7rem;">
-                                                    <i class="bi bi-x-circle"></i> Discontinued
-                                                </span>
-                                            @endif
+                                            <a href="{{ route('students.show', $item['student']->roll_number) }}" class="text-decoration-none fw-medium" style="color: var(--brand-accent-2);">
+                                                {{ $item['student']->name ?? 'N/A' }}
+                                            </a>
                                         </td>
                                         <td>
                                             <div>
@@ -188,14 +189,15 @@
                             <tbody>
                                 @foreach($absentStudents as $item)
                                     <tr>
-                                        <td class="fw-medium">{{ $item['student']->roll_number }}</td>
+                                        <td class="fw-medium">
+                                            <a href="{{ route('students.show', $item['student']->roll_number) }}" class="text-decoration-none fw-medium" style="color: var(--brand-accent-2);">
+                                                {{ $item['student']->roll_number }}
+                                            </a>
+                                        </td>
                                         <td>
-                                            {{ $item['student']->name ?? 'N/A' }}
-                                            @if(($item['student']->deleted_at ?? false) || ($item['student']->discontinued_at ?? false))
-                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.7rem;">
-                                                    <i class="bi bi-x-circle"></i> Discontinued
-                                                </span>
-                                            @endif
+                                            <a href="{{ route('students.show', $item['student']->roll_number) }}" class="text-decoration-none fw-medium" style="color: var(--brand-accent-2);">
+                                                {{ $item['student']->name ?? 'N/A' }}
+                                            </a>
                                         </td>
                                         <td>{{ $item['student']->parent_phone ?? 'N/A' }}</td>
                                         <td>

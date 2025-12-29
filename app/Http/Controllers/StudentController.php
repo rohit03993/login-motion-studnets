@@ -8,6 +8,8 @@ use App\Models\Student;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class StudentController extends Controller
 {
@@ -187,6 +189,55 @@ class StudentController extends Controller
         $student->restore();
         
         return back()->with('success', "Student '{$student->name}' has been restored and will appear in manual attendance again.");
+    }
+
+    /**
+     * Permanently delete a discontinued student and all their data
+     * WARNING: This is irreversible and deletes all related records
+     */
+    public function deletePermanent(string $roll): RedirectResponse
+    {
+        $student = Student::withTrashed()->where('roll_number', $roll)->firstOrFail();
+        
+        // Verify student is discontinued before allowing permanent delete
+        if (!$student->trashed() && !$student->discontinued_at) {
+            return back()->withErrors(['error' => 'Only discontinued students can be permanently deleted.']);
+        }
+        
+        $studentName = $student->name ?? $roll;
+        
+        // Permanently delete all related data
+        DB::beginTransaction();
+        try {
+            // Delete punch logs
+            DB::table('punch_logs')->where('employee_id', $roll)->delete();
+            
+            // Delete manual attendance records
+            if (Schema::hasTable('manual_attendances')) {
+                DB::table('manual_attendances')->where('roll_number', $roll)->delete();
+            }
+            
+            // Delete WhatsApp logs
+            if (Schema::hasTable('whatsapp_logs')) {
+                DB::table('whatsapp_logs')->where('roll_number', $roll)->delete();
+            }
+            
+            // Delete notification queue entries
+            if (Schema::hasTable('notification_queue')) {
+                DB::table('notification_queue')->where('roll_number', $roll)->delete();
+            }
+            
+            // Permanently delete the student record (force delete)
+            $student->forceDelete();
+            
+            DB::commit();
+            
+            return redirect()->route('students.index')
+                ->with('success', "Student '{$studentName}' and all their data have been permanently deleted.");
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Failed to delete student: ' . $e->getMessage()]);
+        }
     }
 
     /**
