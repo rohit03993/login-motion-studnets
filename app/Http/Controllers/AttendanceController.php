@@ -32,6 +32,8 @@ class AttendanceController extends Controller
             // Table doesn't exist yet - show setup message
             $roll = $request->query('roll');
             $name = $request->query('name');
+            $classFilter = $request->query('class');
+            $date = $request->query('date');
             $dateFrom = $request->query('date_from');
             $dateTo = $request->query('date_to');
             
@@ -52,9 +54,9 @@ class AttendanceController extends Controller
                 'roll' => $roll ?: null, // Only set if explicitly provided
                 'name' => $name ?: null, // Only set if explicitly provided
                 'class' => $classFilter ?: null,
-                'date' => $date,
-                'date_from' => $dateFrom,
-                'date_to' => $dateTo,
+                'date' => $date ?: null,
+                'date_from' => $dateFrom ?: null,
+                'date_to' => $dateTo ?: null,
             ],
                 'studentStats' => ['total' => 0, 'in' => 0, 'out' => 0],
                 'employeeStats' => ['total' => 0, 'in' => 0, 'out' => 0],
@@ -670,6 +672,17 @@ class AttendanceController extends Controller
         // Calculate total duration for students and employees
         $durationTotals = $this->calculateTotalDurations($dateFrom, $dateTo, $roll, $name);
 
+        // If AJAX request, return JSON for auto-refresh
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'studentStats' => $studentStats,
+                'employeeStats' => $employeeStats,
+                'totalRecords' => $rows->total(),
+                'timestamp' => now()->toDateTimeString(),
+            ]);
+        }
+
         return view('attendance.index', [
             'rows' => $rows,
             'groupedRows' => $groupedRows,
@@ -721,6 +734,13 @@ class AttendanceController extends Controller
             $dateTo = $minDate;
         }
 
+        // IMPORTANT: If this roll number has been converted to an employee, redirect to employee profile
+        $existingEmployee = \App\Models\Employee::where('roll_number', $roll)->first();
+        if ($existingEmployee) {
+            // This roll number is now an employee, redirect to employee profile
+            return redirect()->route('employees.show', $roll);
+        }
+        
         // Allow viewing discontinued students (withTrashed) for historical data
         $student = Student::withTrashed()->where('roll_number', $roll)->first();
         // If no mapping yet, create an in-memory placeholder so the page still renders blanks.
@@ -936,6 +956,19 @@ class AttendanceController extends Controller
         // Ensure date range doesn't go before minimum date
         if ($dateTo < $minDate) {
             $dateTo = $minDate;
+        }
+
+        // IMPORTANT: If this roll number has been converted to a student, clean up and redirect
+        $existingStudent = \App\Models\Student::withTrashed()->where('roll_number', $roll)->first();
+        if ($existingStudent && $existingStudent->isActive()) {
+            // This roll number is now an active student - clean up any orphaned employee record
+            $orphanedEmployee = Employee::where('roll_number', $roll)->first();
+            if ($orphanedEmployee) {
+                // Permanently delete the orphaned employee record (from old conversion method)
+                $orphanedEmployee->delete(); // Employee doesn't use SoftDeletes, so this is permanent
+            }
+            // Redirect to student profile
+            return redirect()->route('students.show', $roll);
         }
 
         // Allow viewing discontinued employees for historical data

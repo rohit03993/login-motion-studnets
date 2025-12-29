@@ -9,6 +9,7 @@ use App\Models\UserClassPermission;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 
@@ -196,5 +197,68 @@ class EmployeeController extends Controller
         $employee->restore();
         
         return back()->with('success', "Employee '{$employee->name}' has been restored and will appear in employee lists again.");
+    }
+
+    /**
+     * Convert employee to student (Super Admin only)
+     * Transforms the employee profile into a student profile - no duplicates
+     */
+    public function convertToStudent(Request $request, string $roll): RedirectResponse
+    {
+        $employee = Employee::where('roll_number', $roll)->firstOrFail();
+        
+        // SAFETY CHECK: Only prevent conversion if ACTIVE student exists
+        // Allow conversion if student is discontinued (will be restored/overwritten)
+        $existingStudent = \App\Models\Student::withTrashed()->where('roll_number', $roll)->first();
+        if ($existingStudent && $existingStudent->isActive()) {
+            return back()->withErrors([
+                'error' => "An active student profile with this roll number already exists. Cannot convert. Please discontinue the existing student profile first if you want to proceed."
+            ]);
+        }
+        
+        $employeeName = $employee->name ?? $roll;
+        
+        DB::beginTransaction();
+        try {
+            // Create or restore student record (transfer all data)
+            // If discontinued student exists, restore and update it; otherwise create new
+            if ($existingStudent) {
+                // Restore discontinued student and update with employee data
+                $student = $existingStudent;
+                $student->restore(); // Restore if soft-deleted
+            } else {
+                // Create new student record
+                $student = new \App\Models\Student();
+                $student->roll_number = $roll;
+            }
+            
+            // Update/Set student data from employee
+            $student->name = $employee->name;
+            $student->father_name = $employee->father_name;
+            $student->parent_phone = $employee->mobile; // Use mobile as primary phone
+            $student->parent_phone_secondary = null;
+            $student->whatsapp_send_to = 'primary';
+            $student->alerts_enabled = true;
+            $student->class_course = $student->class_course ?? null; // Preserve existing if restored
+            $student->batch = $student->batch ?? null; // Preserve existing if restored
+            $student->discontinued_at = null; // Ensure active
+            $student->deleted_at = null; // Ensure not soft-deleted
+            $student->save();
+            
+            // Permanently delete the employee record (no duplicate, no discontinuation)
+            // All related data (punch_logs, etc.) remains intact as they reference by roll_number
+            // Note: Employee model doesn't use SoftDeletes, so delete() is a hard delete
+            // If employee has a user account (user_id), it will remain but won't be linked to anything
+            // This is fine as the user account can be cleaned up separately if needed
+            $employee->delete();
+            
+            DB::commit();
+            
+            return redirect()->route('students.show', $roll)
+                ->with('success', "Employee profile '{$employeeName}' has been transformed into a student profile. All attendance data has been preserved.");
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Failed to convert employee to student: ' . $e->getMessage()]);
+        }
     }
 }

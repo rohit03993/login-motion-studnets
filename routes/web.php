@@ -35,6 +35,14 @@ Route::middleware('auth')->group(function () {
     // Students List (All authenticated users)
     Route::get('/students', [StudentsListController::class, 'index'])->name('students.index');
 
+    // Profile Conversion (Super Admin Only) - MUST come before /students/{roll} route
+    Route::prefix('students')->name('students.')->middleware('superadmin')->group(function () {
+        Route::post('/{roll}/convert-to-employee', [StudentController::class, 'convertToEmployee'])->name('convert-to-employee');
+    });
+    Route::prefix('employees')->name('employees.')->middleware('superadmin')->group(function () {
+        Route::post('/{roll}/convert-to-student', [EmployeeController::class, 'convertToStudent'])->name('convert-to-student');
+    });
+
     // Courses Management (Super Admin Only) - MUST come before /students/{roll} route
     Route::prefix('students/courses')->name('courses.')->middleware('superadmin')->group(function () {
         Route::get('/', [CourseController::class, 'index'])->name('index');

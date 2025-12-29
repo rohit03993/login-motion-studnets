@@ -1,6 +1,78 @@
 @extends('layouts.app', ['title' => 'Manual Attendance'])
 
 @section('content')
+<style>
+    .filters-card-modern {
+        background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+        border: 1px solid #bae6fd;
+        box-shadow: 0 4px 20px rgba(14, 165, 233, 0.1);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+    }
+    .filters-card-modern:hover {
+        box-shadow: 0 6px 25px rgba(14, 165, 233, 0.15);
+        background: linear-gradient(135deg, #e0f2fe, #dbeafe);
+    }
+    .filter-input-modern {
+        border: 2px solid #bae6fd;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        background: #ffffff;
+    }
+    .filter-input-modern:focus {
+        border-color: #0ea5e9;
+        box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+        outline: none;
+        background: #ffffff;
+    }
+    .filter-select-modern {
+        border: 2px solid #bae6fd;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        background: #ffffff;
+    }
+    .filter-select-modern:focus {
+        border-color: #0ea5e9;
+        box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+        outline: none;
+        background: #ffffff;
+    }
+    .load-btn-modern {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        border: none;
+        border-radius: 10px;
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+    }
+    .load-btn-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        background: linear-gradient(135deg, #dc2626, #b91c1c);
+    }
+    .reset-btn-modern {
+        background: linear-gradient(135deg, #64748b, #475569);
+        border: none;
+        border-radius: 10px;
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(100, 116, 139, 0.3);
+    }
+    .reset-btn-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(100, 116, 139, 0.4);
+        background: linear-gradient(135deg, #475569, #334155);
+    }
+    .filter-label-modern {
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.85rem;
+        margin-bottom: 6px;
+        display: block;
+    }
+</style>
 <div class="brand-card mb-3">
     <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-md-between">
         <div>
@@ -12,24 +84,38 @@
     </div>
 </div>
 
-<div class="brand-card mb-3" style="background: linear-gradient(135deg, #ecfeff, #eef2ff); border: 1px solid #e0f2fe; box-shadow: 0 10px 30px rgba(15,23,42,0.06);">
+<div class="brand-card mb-3 filters-card-modern">
     <div class="section-title mb-3"><i class="bi bi-funnel"></i> Filters</div>
-    <form method="GET" action="{{ route('manual-attendance.index') }}" class="row g-2 align-items-end">
+    <form method="GET" action="{{ route('manual-attendance.index') }}" class="row g-3">
         <div class="col-12 col-md-2">
-            <label class="form-label"><i class="bi bi-person-badge"></i> Roll Number</label>
-            <input type="text" name="roll" value="{{ request('roll') }}" class="form-control" placeholder="">
+            <label class="filter-label-modern"><i class="bi bi-person-badge"></i> Roll Number</label>
+            <input type="text" 
+                   name="roll" 
+                   id="manualAttendanceRoll" 
+                   value="{{ request()->has('roll') && request('roll') !== '' ? request('roll') : '' }}" 
+                   class="form-control filter-input-modern" 
+                   placeholder="Enter roll number" 
+                   autocomplete="off"
+                   data-lpignore="true">
         </div>
         <div class="col-12 col-md-2">
-            <label class="form-label"><i class="bi bi-person"></i> Name</label>
-            <input type="text" name="name" value="{{ request('name') }}" class="form-control" placeholder="Enter name">
+            <label class="filter-label-modern"><i class="bi bi-person"></i> Name</label>
+            <input type="text" 
+                   name="name" 
+                   id="manualAttendanceName" 
+                   value="{{ request()->has('name') && request('name') !== '' ? request('name') : '' }}" 
+                   class="form-control filter-input-modern" 
+                   placeholder="Enter name" 
+                   autocomplete="off"
+                   data-lpignore="true">
         </div>
         <div class="col-12 col-md-3">
-            <label class="form-label"><i class="bi bi-calendar"></i> Date</label>
-            <input type="date" name="date" value="{{ $date }}" class="form-control" required>
+            <label class="filter-label-modern"><i class="bi bi-calendar"></i> Date</label>
+            <input type="date" name="date" value="{{ $date }}" class="form-control filter-input-modern" required>
         </div>
         <div class="col-12 col-md-3">
-            <label class="form-label"><i class="bi bi-book"></i> Class</label>
-            <select name="class" class="form-select">
+            <label class="filter-label-modern"><i class="bi bi-book"></i> Class</label>
+            <select name="class" class="form-select filter-select-modern">
                 <option value="ALL" {{ $classCourse === 'ALL' ? 'selected' : '' }}>All Classes</option>
                 @if($hasNoClass)
                     <option value="__no_class__" {{ $classCourse === '__no_class__' ? 'selected' : '' }}>
@@ -43,18 +129,16 @@
                 @endforeach
             </select>
         </div>
-        <div class="col-12 col-md-2">
-            <button type="submit" class="btn btn-primary w-100">
+        <div class="col-12 col-md-2 d-flex gap-2 align-items-end">
+            <button type="submit" class="btn load-btn-modern btn-sm flex-fill">
                 <i class="bi bi-search"></i> Load
             </button>
-        </div>
-        @if(request('roll') || request('name'))
-            <div class="col-12 col-md-2">
-                <a href="{{ route('manual-attendance.index', ['date' => $date, 'class' => $classCourse]) }}" class="btn btn-outline-secondary w-100">
+            @if(request('roll') || request('name'))
+                <a href="{{ route('manual-attendance.index', ['date' => $date, 'class' => $classCourse]) }}" class="btn reset-btn-modern btn-sm flex-fill">
                     <i class="bi bi-arrow-clockwise"></i> Reset
                 </a>
-            </div>
-        @endif
+            @endif
+        </div>
     </form>
 </div>
 
@@ -472,6 +556,32 @@ document.addEventListener('DOMContentLoaded', function() {
             timeInputModal.show();
         });
     });
+
+    // Prevent browser autocomplete and clear any prefilled values on page load
+    const rollInput = document.getElementById('manualAttendanceRoll');
+    const nameInput = document.getElementById('manualAttendanceName');
+    
+    if (rollInput) {
+        // Clear if not explicitly in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (!urlParams.has('roll') || urlParams.get('roll') === '') {
+            rollInput.value = '';
+        }
+        // Prevent autocomplete
+        rollInput.setAttribute('autocomplete', 'off');
+        rollInput.setAttribute('data-lpignore', 'true');
+    }
+    
+    if (nameInput) {
+        // Clear if not explicitly in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (!urlParams.has('name') || urlParams.get('name') === '') {
+            nameInput.value = '';
+        }
+        // Prevent autocomplete
+        nameInput.setAttribute('autocomplete', 'off');
+        nameInput.setAttribute('data-lpignore', 'true');
+    }
 });
 </script>
 @endpush

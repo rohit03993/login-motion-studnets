@@ -42,50 +42,176 @@
         font-size: 12px;
     }
     .filters-card {
-        background: linear-gradient(135deg, #ecfeff, #eef2ff);
-        border: 1px solid #e0f2fe;
-        box-shadow: 0 10px 30px rgba(15,23,42,0.06);
+        background: linear-gradient(135deg, #ffffff, #f8fafc);
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 20px rgba(15,23,42,0.08);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+    }
+    .filters-card:hover {
+        box-shadow: 0 6px 25px rgba(15,23,42,0.12);
+    }
+    .filter-input-modern {
+        border: 2px solid #bae6fd;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        background: #ffffff;
+    }
+    .filter-input-modern:focus {
+        border-color: #0ea5e9;
+        box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+        outline: none;
+        background: #ffffff;
+    }
+    .filter-select-modern {
+        border: 2px solid #bae6fd;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        background: #ffffff;
+    }
+    .filter-select-modern:focus {
+        border-color: #0ea5e9;
+        box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+        outline: none;
+        background: #ffffff;
+    }
+    .filter-btn-modern {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        border: none;
+        border-radius: 10px;
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+    }
+    .filter-btn-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        background: linear-gradient(135deg, #dc2626, #b91c1c);
+    }
+    .reset-btn-modern {
+        background: linear-gradient(135deg, #64748b, #475569);
+        border: none;
+        border-radius: 10px;
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(100, 116, 139, 0.3);
+    }
+    .reset-btn-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(100, 116, 139, 0.4);
+        background: linear-gradient(135deg, #475569, #334155);
+    }
+    .filter-label-modern {
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.85rem;
+        margin-bottom: 6px;
+        display: block;
     }
     @media (max-width: 768px) {
         .live-stat .stat-value { font-size: 18px; }
         .stat-card { margin-bottom: 8px; }
     }
+    /* Auto-refresh button animations */
+    .auto-refresh-btn {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        color: white;
+        border: none;
+        border-radius: 50px;
+        padding: 8px 16px;
+        font-size: 0.75rem;
+        box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
+        cursor: default;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 140px;
+        justify-content: center;
+    }
+    .auto-refresh-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(79, 70, 229, 0.5);
+    }
+    .auto-refresh-btn .refresh-icon {
+        animation: pulse 2s ease-in-out infinite;
+    }
+    .auto-refresh-btn .punch-animation {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        background: #10b981;
+        border-radius: 50%;
+        margin-left: 4px;
+        animation: punchPulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+        0%, 100% {
+            transform: rotate(0deg) scale(1);
+            opacity: 1;
+        }
+        50% {
+            transform: rotate(180deg) scale(1.1);
+            opacity: 0.8;
+        }
+    }
+    @keyframes punchPulse {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+        }
+        50% {
+            transform: scale(1.3);
+            opacity: 0.7;
+            box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+        }
+    }
+    .auto-refresh-btn .countdown-text {
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
 </style>
-<div class="brand-card mb-3">
-    <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-md-between">
-        <div>
-            <div class="section-title mb-1">
-                <i class="bi bi-clock-history"></i> {{ $isEmployeeView ? 'Employee Attendance' : 'Live Attendance Dashboard' }}
-            </div>
-            <div class="muted">{{ $isEmployeeView ? 'Real-time punches for employees' : 'Real-time punches from EasyTimePro' }}</div>
-        </div>
-        <div class="d-flex gap-2">
-            <a class="btn btn-success" href="{{ url('/attendance/export') }}?{{ http_build_query(request()->query()) }}">
-                <i class="bi bi-download"></i> Export CSV
-            </a>
-        </div>
-    </div>
-</div>
 
 <div class="brand-card mb-3 filters-card">
     <div class="section-title mb-3"><i class="bi bi-funnel"></i> Filters</div>
-    <form class="row gy-2 gx-2 align-items-end" method="get" action="{{ url($isEmployeeView ? '/employees/attendance' : '/attendance') }}">
+    <form class="row g-3" method="get" action="{{ url($isEmployeeView ? '/employees/attendance' : '/attendance') }}" id="attendanceFilterForm">
         <div class="col-12 col-md-3">
-            <label class="form-label"><i class="bi bi-person-badge"></i> Roll / Employee ID</label>
-            <input type="text" name="roll" value="{{ isset($filters['roll']) && !empty($filters['roll']) ? $filters['roll'] : '' }}" class="form-control" placeholder="" autocomplete="off">
+            <label class="filter-label-modern"><i class="bi bi-person-badge"></i> Roll / Employee ID</label>
+            <input type="text" 
+                   name="roll" 
+                   id="filterRoll" 
+                   value="{{ request()->has('roll') && request('roll') !== '' ? request('roll') : '' }}" 
+                   class="form-control filter-input-modern" 
+                   placeholder="Enter roll number" 
+                   autocomplete="off"
+                   data-lpignore="true">
         </div>
         <div class="col-12 col-md-3">
-            <label class="form-label"><i class="bi bi-person"></i> Name (partial)</label>
-            <input type="text" name="name" value="{{ $filters['name'] ?? '' }}" class="form-control" placeholder="Enter name">
+            <label class="filter-label-modern"><i class="bi bi-person"></i> Name (partial)</label>
+            <input type="text" 
+                   name="name" 
+                   id="filterName" 
+                   value="{{ request()->has('name') && request('name') !== '' ? request('name') : '' }}" 
+                   class="form-control filter-input-modern" 
+                   placeholder="Enter name" 
+                   autocomplete="off"
+                   data-lpignore="true">
         </div>
         @if(!$isEmployeeView)
         <div class="col-12 col-md-2">
-            <label class="form-label"><i class="bi bi-book"></i> Class</label>
-            <select name="class" class="form-select">
+            <label class="filter-label-modern"><i class="bi bi-book"></i> Class</label>
+            <select name="class" class="form-select filter-select-modern" id="filterClass">
                 <option value="">All Classes</option>
                 @if(isset($courses) && is_iterable($courses))
                     @foreach($courses as $course)
-                        <option value="{{ $course->name ?? '' }}" {{ ($filters['class'] ?? '') === ($course->name ?? '') ? 'selected' : '' }}>
+                        <option value="{{ $course->name ?? '' }}" {{ request('class') === ($course->name ?? '') ? 'selected' : '' }}>
                             {{ $course->name ?? '' }}
                         </option>
                     @endforeach
@@ -94,14 +220,21 @@
         </div>
         @endif
         <div class="col-12 col-md-2">
-            <label class="form-label"><i class="bi bi-calendar-event"></i> Date</label>
-            <input type="date" name="date" value="{{ $filters['date'] ?? date('Y-m-d') }}" class="form-control" max="{{ date('Y-m-d') }}">
+            <label class="filter-label-modern"><i class="bi bi-calendar-event"></i> Date</label>
+            <input type="date" 
+                   name="date" 
+                   id="filterDate" 
+                   value="{{ request('date') ?: date('Y-m-d') }}" 
+                   class="form-control filter-input-modern" 
+                   max="{{ date('Y-m-d') }}">
         </div>
-        <div class="col-12 col-md-2">
-            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Filter</button>
-        </div>
-        <div class="col-12 col-md-2">
-            <a class="btn btn-outline-secondary w-100" href="{{ url($isEmployeeView ? '/employees/attendance' : '/attendance') }}"><i class="bi bi-arrow-clockwise"></i> Reset</a>
+        <div class="col-12 col-md-2 d-flex gap-2 align-items-end">
+            <button type="submit" class="btn filter-btn-modern btn-sm flex-fill">
+                <i class="bi bi-search"></i> Filter
+            </button>
+            <a class="btn reset-btn-modern btn-sm flex-fill" href="{{ url($isEmployeeView ? '/employees/attendance' : '/attendance') }}">
+                <i class="bi bi-arrow-clockwise"></i> Reset
+            </a>
         </div>
     </form>
 </div>
@@ -122,25 +255,36 @@
         </div>
     </div>
 @else
+<!-- Auto-refresh button (Bottom Right) -->
+<div class="auto-refresh-btn">
+    <i class="bi bi-arrow-clockwise refresh-icon"></i>
+        <span class="countdown-text" id="autoRefreshCountdown">2:00</span>
+        <small style="opacity: 0.8; font-size: 0.65rem;">next</small>
+    <span class="punch-animation"></span>
+</div>
+
 <!-- Students Statistics Cards (Hidden in Employee View) -->
 @if(!$isEmployeeView)
 <div class="mb-4">
-    <div class="section-title mb-3"><i class="bi bi-people"></i> Students</div>
+    <div class="section-title mb-3">
+        <i class="bi bi-people"></i> Students
+        <small class="text-muted ms-2" id="lastRefreshTime" style="font-size: 0.75rem;"></small>
+    </div>
     <div class="row g-3 mb-3">
         <div class="col-6 col-md-4">
-            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #10b981, #059669);">
+            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #10b981, #059669);" data-stat="student-in">
                 <div class="stat-label"><i class="bi bi-box-arrow-in-right"></i> IN</div>
                 <div class="stat-value" style="font-size: 2.5rem;">{{ number_format($studentStats['in'] ?? 0) }}</div>
             </div>
         </div>
         <div class="col-6 col-md-4">
-            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #ef4444, #dc2626);" data-stat="student-out">
                 <div class="stat-label"><i class="bi bi-box-arrow-right"></i> OUT</div>
                 <div class="stat-value" style="font-size: 2.5rem;">{{ number_format($studentStats['out'] ?? 0) }}</div>
             </div>
         </div>
         <div class="col-6 col-md-4">
-            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #6366f1, #4f46e5);">
+            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #6366f1, #4f46e5);" data-stat="student-total">
                 <div class="stat-label">Total</div>
                 <div class="stat-value" style="font-size: 2.5rem;">{{ number_format($studentStats['total'] ?? 0) }}</div>
             </div>
@@ -154,19 +298,19 @@
     <div class="section-title mb-3"><i class="bi bi-briefcase"></i> Employees</div>
     <div class="row g-3 mb-3">
         <div class="col-6 col-md-4">
-            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #f59e0b, #d97706);" data-stat="employee-in">
                 <div class="stat-label"><i class="bi bi-box-arrow-in-right"></i> IN</div>
                 <div class="stat-value" style="font-size: 2.5rem;">{{ number_format($employeeStats['in'] ?? 0) }}</div>
             </div>
         </div>
         <div class="col-6 col-md-4">
-            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #ec4899, #db2777);">
+            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #ec4899, #db2777);" data-stat="employee-out">
                 <div class="stat-label"><i class="bi bi-box-arrow-right"></i> OUT</div>
                 <div class="stat-value" style="font-size: 2.5rem;">{{ number_format($employeeStats['out'] ?? 0) }}</div>
             </div>
         </div>
         <div class="col-6 col-md-4">
-            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+            <div class="stat-card live-stat" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);" data-stat="employee-total">
                 <div class="stat-label">Total</div>
                 <div class="stat-value" style="font-size: 2.5rem;">{{ number_format($employeeStats['total'] ?? 0) }}</div>
             </div>
@@ -177,7 +321,7 @@
 <div class="brand-card">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="section-title mb-0"><i class="bi bi-list-ul"></i> Punch Records</div>
-        <div class="text-muted small">{{ $rows->total() }} total records</div>
+        <div class="text-muted small punch-records-total">{{ $rows->total() }} total records</div>
     </div>
     
     @if($groupedRows && $groupedRows->count() > 0)
@@ -651,6 +795,78 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Prevent browser autocomplete and clear any prefilled values on page load
+    const rollInput = document.getElementById('filterRoll');
+    const nameInput = document.getElementById('filterName');
+    
+    if (rollInput) {
+        // Clear if not explicitly in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (!urlParams.has('roll') || urlParams.get('roll') === '') {
+            rollInput.value = '';
+        }
+        // Prevent autocomplete
+        rollInput.setAttribute('autocomplete', 'off');
+        rollInput.setAttribute('data-lpignore', 'true');
+    }
+    
+    if (nameInput) {
+        // Clear if not explicitly in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (!urlParams.has('name') || urlParams.get('name') === '') {
+            nameInput.value = '';
+        }
+        // Prevent autocomplete
+        nameInput.setAttribute('autocomplete', 'off');
+        nameInput.setAttribute('data-lpignore', 'true');
+    }
+
+    // Auto-refresh page every 2 minutes (120 seconds)
+    let autoRefreshInterval;
+    let countdownInterval;
+    let refreshCountdown = 120; // 2 minutes in seconds
+
+    // Update countdown display
+    function updateCountdown() {
+        const minutes = Math.floor(refreshCountdown / 60);
+        const seconds = refreshCountdown % 60;
+        const countdownEl = document.getElementById('autoRefreshCountdown');
+        if (countdownEl) {
+            countdownEl.textContent = `Auto-refresh in ${minutes}:${String(seconds).padStart(2, '0')}`;
+        }
+    }
+
+    // Start countdown timer
+    updateCountdown();
+    countdownInterval = setInterval(function() {
+        refreshCountdown--;
+        updateCountdown();
+        
+        if (refreshCountdown <= 0) {
+            refreshCountdown = 120; // Reset to 2 minutes
+        }
+    }, 1000);
+
+    // Auto-refresh function - reloads the page with current filters
+    function refreshPage() {
+        // Preserve current URL (including filters) and reload
+        window.location.reload();
+    }
+
+    // Start auto-refresh interval - reload every 2 minutes (120,000 milliseconds)
+    // Continues even when tab is hidden
+    autoRefreshInterval = setInterval(refreshPage, 120000);
+
+    // Clean up on page unload
+    window.addEventListener('beforeunload', function() {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+        }
+        if (countdownInterval) {
+            clearInterval(countdownInterval);
+        }
+    });
 });
 </script>
 @endpush

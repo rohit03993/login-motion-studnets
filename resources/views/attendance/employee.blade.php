@@ -153,6 +153,38 @@
                 </form>
             @endif
         </div>
+        
+        <!-- Convert to Student (Super Admin Only) -->
+        @php
+            // Safety check: Only block conversion if ACTIVE student exists
+            // Allow conversion if student is discontinued (will be overwritten/restored)
+            $existingStudent = \App\Models\Student::withTrashed()->where('roll_number', $roll)->first();
+            $canConvertToStudent = !$existingStudent || ($existingStudent && !$existingStudent->isActive());
+        @endphp
+        <div class="mt-3 pt-3 border-top">
+            <div class="d-flex align-items-center gap-2">
+                <div class="muted small">Profile Type:</div>
+                <span class="badge bg-info">
+                    <i class="bi bi-briefcase"></i> Employee
+                </span>
+                @if($canConvertToStudent)
+                    <form method="POST" action="{{ route('employees.convert-to-student', $roll) }}" 
+                          onsubmit="return confirm('⚠️ Transform this employee profile to a student profile?\n\n- Employee profile will be PERMANENTLY DELETED\n- Student profile will be created/restored with same roll number\n- All attendance data will be preserved\n- Name, father name, and mobile will be transferred\n\n{{ $existingStudent && !$existingStudent->isActive() ? "Note: A discontinued student profile exists and will be restored.\n\n" : "" }}This action cannot be undone. Continue?');" 
+                          style="display: inline;" class="ms-auto">
+                        @csrf
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-arrow-right-circle"></i> Convert to Student
+                        </button>
+                    </form>
+                @else
+                    <div class="ms-auto">
+                        <span class="badge bg-warning text-dark">
+                            <i class="bi bi-exclamation-triangle"></i> Active student profile already exists
+                        </span>
+                    </div>
+                @endif
+            </div>
+        </div>
     </div>
     @endif
 </div>

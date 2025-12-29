@@ -192,15 +192,55 @@
                 <span class="badge bg-success">
                     <i class="bi bi-check-circle"></i> Active
                 </span>
-                <form method="POST" action="{{ route('students.discontinue', $roll) }}" 
-                      onsubmit="return confirm('Discontinue this student? They will not appear in manual attendance, but historical records will be preserved.');" 
-                      style="display: inline;" class="ms-auto">
-                    @csrf
-                    <button type="submit" class="btn btn-warning btn-sm">
-                        <i class="bi bi-x-circle"></i> Discontinue Student
-                    </button>
-                </form>
+                <div class="ms-auto d-flex gap-2">
+                    <form method="POST" action="{{ route('students.discontinue', $roll) }}" 
+                          onsubmit="return confirm('Discontinue this student? They will not appear in manual attendance, but historical records will be preserved.');" 
+                          style="display: inline;">
+                        @csrf
+                        <button type="submit" class="btn btn-warning btn-sm">
+                            <i class="bi bi-x-circle"></i> Discontinue Student
+                        </button>
+                    </form>
+                </div>
             @endif
+        </div>
+        
+        <!-- Convert to Employee (Super Admin Only) -->
+        @php
+            // Safety check: Only show conversion if NO employee profile exists
+            $existingEmployee = \App\Models\Employee::where('roll_number', $roll)->first();
+            $canConvertToEmployee = !$existingEmployee;
+        @endphp
+        <div class="mt-3 pt-3 border-top">
+            <div class="d-flex align-items-center gap-2">
+                <div class="muted small">Profile Type:</div>
+                <span class="badge bg-primary">
+                    <i class="bi bi-person-badge"></i> Student
+                </span>
+                @if($canConvertToEmployee)
+                    <form method="POST" action="{{ route('students.convert-to-employee', $roll) }}" 
+                          onsubmit="return confirm('⚠️ Transform this student profile to an employee profile?\n\n- Student profile will be PERMANENTLY DELETED\n- Employee profile will be created with same roll number\n- All attendance data will be preserved\n- Name, father name, and phone will be transferred\n\nYou will need to select employee category (Academic/Non-Academic).\n\nThis action cannot be undone. Continue?');" 
+                          style="display: inline;" class="ms-auto">
+                        @csrf
+                        <div class="d-flex gap-2 align-items-center">
+                            <select name="category" class="form-select form-select-sm" style="width: auto;" required>
+                                <option value="">Select Category</option>
+                                <option value="academic">Academic</option>
+                                <option value="non_academic">Non-Academic</option>
+                            </select>
+                            <button type="submit" class="btn btn-info btn-sm">
+                                <i class="bi bi-arrow-right-circle"></i> Convert to Employee
+                            </button>
+                        </div>
+                    </form>
+                @else
+                    <div class="ms-auto">
+                        <span class="badge bg-warning text-dark">
+                            <i class="bi bi-exclamation-triangle"></i> Employee profile already exists ({{ $existingEmployee->isActiveEmployee() ? 'Active' : 'Discontinued' }})
+                        </span>
+                    </div>
+                @endif
+            </div>
         </div>
     </div>
     @endif

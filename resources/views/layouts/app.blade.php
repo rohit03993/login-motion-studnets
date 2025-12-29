@@ -268,9 +268,19 @@
             color: var(--brand-muted);
         }
         .navbar-brand {
-            padding: 16px 0;
-            border-bottom: 2px solid var(--brand-border);
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+            background-size: 300% 300%;
+            animation: gradientShift 15s ease infinite;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
             margin-bottom: 24px;
+            border: none;
+        }
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
         .navbar-brand > div {
             flex-wrap: nowrap !important;
@@ -337,26 +347,27 @@
             pointer-events: auto !important;
         }
         .dropdown-toggle-btn {
-            background: none;
-            border: none;
-            padding: 8px 12px;
-            color: var(--brand-text);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 10px 16px;
+            color: rgba(255, 255, 255, 0.9);
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            border-radius: 6px;
-            transition: all 0.2s;
+            border-radius: 10px;
+            transition: all 0.3s ease;
             cursor: pointer;
             font-size: 14px;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
         }
         .dropdown-toggle-btn:hover {
-            background: rgba(0,0,0,0.04);
-            color: var(--brand-text);
-        }
-        .dropdown-toggle-btn.active {
-            background: rgba(231,76,60,0.1);
-            color: var(--brand-accent-2);
+            background: rgba(255, 255, 255, 0.25);
+            color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
         .brand-logo {
             font-size: 20px;
@@ -379,15 +390,19 @@
             margin-left: 0;
         }
         .nav-link {
-            color: var(--brand-muted);
+            color: rgba(255, 255, 255, 0.9);
             text-decoration: none;
-            padding: 8px 12px;
-            border-radius: 8px;
-            transition: all 0.2s;
+            padding: 10px 16px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
             display: flex;
             align-items: center;
             gap: 6px;
             white-space: nowrap;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
         @media (max-width: 768px) {
             .nav-link {
@@ -395,13 +410,37 @@
             }
         }
         .nav-link:hover {
-            color: var(--brand-accent-2);
-            background: rgba(231,76,60,0.1);
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
         .nav-link.active {
-            color: var(--brand-accent-2);
-            background: rgba(231,76,60,0.15);
-            font-weight: 600;
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.3);
+            font-weight: 700;
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+            transform: translateY(-1px);
+        }
+        /* Specific colors for each nav item */
+        .nav-link[href*="attendance"]:not([href*="employees"]):not([href*="manual"]):not([href*="students"]).active {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.4), rgba(5, 150, 105, 0.5));
+        }
+        .nav-link[href*="students"].active {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(37, 99, 235, 0.5));
+        }
+        .nav-link[href*="employees"].active {
+            background: linear-gradient(135deg, rgba(251, 146, 60, 0.4), rgba(249, 115, 22, 0.5));
+        }
+        .nav-link[href*="manual-attendance"].active {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(147, 51, 234, 0.5));
+        }
+        .dropdown-toggle-btn.active {
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.4), rgba(219, 39, 119, 0.5));
+            color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.5);
         }
         .stat-card {
             background: linear-gradient(135deg, var(--brand-card) 0%, #f8fafc 100%);
@@ -520,10 +559,10 @@
             </div>
             @auth
                 <div class="dropdown ms-auto" id="userDropdownContainer" style="flex-shrink: 0;">
-                    <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle-btn d-flex align-items-center gap-1" id="userDropdownBtn" style="white-space: nowrap;">
+                    <button type="button" class="dropdown-toggle-btn d-flex align-items-center gap-1" id="userDropdownBtn" style="white-space: nowrap;">
                         <i class="bi bi-person-circle"></i> <span style="white-space: nowrap;">{{ auth()->user()->name }}</span>
                         @if(auth()->user()->isSuperAdmin())
-                            <span class="badge bg-warning text-dark">Admin</span>
+                            <span class="badge" style="background: rgba(255, 193, 7, 0.9); color: #000; font-weight: 600;">Admin</span>
                         @endif
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end" id="userDropdownMenu">

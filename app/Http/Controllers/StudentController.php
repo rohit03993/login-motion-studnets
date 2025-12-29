@@ -241,6 +241,58 @@ class StudentController extends Controller
     }
 
     /**
+     * Convert student to employee (Super Admin only)
+     * Transforms the student profile into an employee profile - no duplicates
+     */
+    public function convertToEmployee(Request $request, string $roll): RedirectResponse
+    {
+        $student = Student::withTrashed()->where('roll_number', $roll)->firstOrFail();
+        
+        // SAFETY CHECK: Prevent conversion if ANY employee profile exists (active or discontinued)
+        // This protects existing profiles that may have been manually created or previously converted
+        $existingEmployee = \App\Models\Employee::where('roll_number', $roll)->first();
+        if ($existingEmployee) {
+            $status = $existingEmployee->isActiveEmployee() ? 'active' : 'discontinued';
+            return back()->withErrors([
+                'error' => "An employee profile with this roll number already exists (Status: {$status}). Cannot convert. Please delete or restore the existing employee profile first if you want to proceed."
+            ]);
+        }
+        
+        $validated = $request->validate([
+            'category' => 'required|in:academic,non_academic',
+        ]);
+        
+        $studentName = $student->name ?? $roll;
+        
+        DB::beginTransaction();
+        try {
+            // Create NEW employee record (transfer all data)
+            // Since we checked above, we know no employee exists, so this will always create new
+            $employee = new \App\Models\Employee();
+            $employee->roll_number = $roll;
+            $employee->name = $student->name;
+            $employee->father_name = $student->father_name;
+            $employee->mobile = $student->parent_phone; // Use primary phone as mobile
+            $employee->category = $validated['category'];
+            $employee->is_active = true;
+            $employee->discontinued_at = null; // Ensure active
+            $employee->save();
+            
+            // Permanently delete the student record (no duplicate, no discontinuation)
+            // All related data (punch_logs, manual_attendances, etc.) remains intact as they reference by roll_number
+            $student->forceDelete();
+            
+            DB::commit();
+            
+            return redirect()->route('employees.show', $roll)
+                ->with('success', "Student profile '{$studentName}' has been transformed into an employee profile. All attendance data has been preserved.");
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Failed to convert student to employee: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
      * Ensure default course and batch exist for fallback assignments.
      */
     private function ensureDefaultBucket(): void
