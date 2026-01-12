@@ -372,6 +372,23 @@ class AttendanceController extends Controller
             // Unified punches (machine + manual)
             $mergedPunches = $this->getUnifiedPunches((string) $rollNumber, $dateFrom, $dateTo);
             
+            // Load marked_by user relationships for manual entries
+            $markedByUserIds = $mergedPunches->where('is_manual', 1)
+                ->pluck('marked_by')
+                ->filter()
+                ->unique()
+                ->values();
+            
+            $markedByUsers = [];
+            if ($markedByUserIds->isNotEmpty()) {
+                $users = \App\Models\User::whereIn('id', $markedByUserIds)->get()->keyBy('id');
+                foreach ($mergedPunches as $punch) {
+                    if ($punch->is_manual && $punch->marked_by && isset($users[$punch->marked_by])) {
+                        $punch->marked_by = $users[$punch->marked_by];
+                    }
+                }
+            }
+            
             // Compute IN/OUT pairs using the same logic (NO CACHE - same as student profile page)
             [$daily, $raw] = $this->computeInOut($mergedPunches);
             
@@ -761,6 +778,22 @@ class AttendanceController extends Controller
         // Unified punches (machine + manual) for this student
         $mergedPunches = $this->getUnifiedPunches($roll, $dateFrom, $dateTo);
 
+        // Load marked_by user relationships for manual entries
+        $markedByUserIds = $mergedPunches->where('is_manual', 1)
+            ->pluck('marked_by')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($markedByUserIds->isNotEmpty()) {
+            $users = \App\Models\User::whereIn('id', $markedByUserIds)->get()->keyBy('id');
+            foreach ($mergedPunches as $punch) {
+                if ($punch->is_manual && $punch->marked_by && isset($users[$punch->marked_by])) {
+                    $punch->marked_by = $users[$punch->marked_by];
+                }
+            }
+        }
+
         [$daily, $raw] = $this->computeInOut($mergedPunches);
         
         // Get dates that have attendance records
@@ -989,6 +1022,22 @@ class AttendanceController extends Controller
 
         // Unified punches (machine + manual) for this employee
         $mergedPunches = $this->getUnifiedPunches($roll, $dateFrom, $dateTo);
+
+        // Load marked_by user relationships for manual entries
+        $markedByUserIds = $mergedPunches->where('is_manual', 1)
+            ->pluck('marked_by')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($markedByUserIds->isNotEmpty()) {
+            $users = \App\Models\User::whereIn('id', $markedByUserIds)->get()->keyBy('id');
+            foreach ($mergedPunches as $punch) {
+                if ($punch->is_manual && $punch->marked_by && isset($users[$punch->marked_by])) {
+                    $punch->marked_by = $users[$punch->marked_by];
+                }
+            }
+        }
 
         [$daily, $raw] = $this->computeInOut($mergedPunches);
         
@@ -1337,14 +1386,14 @@ class AttendanceController extends Controller
         }
         
         $machine = DB::table('punch_logs')
-            ->selectRaw("employee_id, punch_date, punch_time, 0 as is_manual, null as state")
+            ->selectRaw("employee_id, punch_date, punch_time, 0 as is_manual, null as state, null as marked_by")
             ->where('employee_id', $rollNumber)
             ->where('punch_date', '>=', $minDate); // Always enforce minimum date
 
         $manualExists = $this->manualTableExists();
         if ($manualExists) {
             $manual = DB::table('manual_attendances')
-                ->selectRaw("roll_number as employee_id, punch_date, punch_time, 1 as is_manual, state")
+                ->selectRaw("roll_number as employee_id, punch_date, punch_time, 1 as is_manual, state, marked_by")
                 ->where('roll_number', $rollNumber)
                 ->where('punch_date', '>=', $minDate); // Always enforce minimum date
         }

@@ -72,6 +72,108 @@
         margin-bottom: 6px;
         display: block;
     }
+    /* Mobile optimizations */
+    @media (max-width: 768px) {
+        .filters-card-modern {
+            padding: 1rem !important;
+        }
+        .filter-input-modern,
+        .filter-select-modern {
+            font-size: 16px; /* Prevents zoom on iOS */
+        }
+        .filter-btn-modern,
+        .reset-btn-modern {
+            min-height: 44px; /* Touch-friendly */
+            font-size: 0.9rem;
+        }
+        /* Hide table on mobile, show cards */
+        .table-responsive {
+            display: none;
+        }
+        .students-mobile-list {
+            display: block;
+        }
+        /* Mobile student card */
+        .student-card-mobile {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .student-card-mobile .student-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .student-card-mobile .student-info {
+            flex: 1;
+        }
+        .student-card-mobile .student-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--brand-accent-2);
+            margin-bottom: 0.25rem;
+        }
+        .student-card-mobile .student-roll {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-bottom: 0.25rem;
+        }
+        .student-card-mobile .student-detail-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .student-card-mobile .student-detail-label {
+            font-weight: 600;
+            color: #475569;
+            min-width: 100px;
+        }
+        .student-card-mobile .student-detail-value {
+            color: #1e293b;
+            flex: 1;
+        }
+        .student-card-mobile .student-actions {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #e2e8f0;
+        }
+        .student-card-mobile .btn {
+            min-height: 44px;
+            width: 100%;
+        }
+        .student-card-mobile .form-check {
+            margin-bottom: 0.5rem;
+        }
+        .student-card-mobile .form-check-label {
+            font-size: 0.9rem;
+            margin-left: 0.5rem;
+        }
+        /* Bulk actions mobile */
+        @media (max-width: 768px) {
+            #bulkAction,
+            #clearSelection {
+                min-height: 44px;
+                font-size: 0.9rem;
+            }
+        }
+    }
+    /* Desktop: show table, hide mobile view */
+    @media (min-width: 769px) {
+        .students-mobile-list {
+            display: none;
+        }
+        .table-responsive {
+            display: block;
+        }
+    }
 </style>
 <div class="brand-card mb-3">
     <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-md-between">
@@ -99,7 +201,7 @@
 <div class="brand-card mb-3 filters-card-modern">
     <div class="section-title mb-3"><i class="bi bi-funnel"></i> Filters</div>
     <form method="GET" action="{{ route('students.index') }}" class="row g-3" id="studentsListFilterForm">
-        <div class="col-12 col-md-3">
+        <div class="col-12 col-sm-6 col-md-3">
             <label class="filter-label-modern"><i class="bi bi-person-badge"></i> Roll Number</label>
             <input type="text" 
                    name="roll" 
@@ -110,7 +212,7 @@
                    autocomplete="off"
                    data-lpignore="true">
         </div>
-        <div class="col-12 col-md-3">
+        <div class="col-12 col-sm-6 col-md-3">
             <label class="filter-label-modern"><i class="bi bi-person"></i> Name</label>
             <input type="text" 
                    name="name" 
@@ -121,7 +223,7 @@
                    autocomplete="off"
                    data-lpignore="true">
         </div>
-        <div class="col-12 col-md-2">
+        <div class="col-12 col-sm-6 col-md-2">
             <label class="filter-label-modern"><i class="bi bi-book"></i> Class</label>
             <select name="class" class="form-select filter-select-modern">
                 <option value="">All Classes</option>
@@ -143,17 +245,17 @@
                 @endforeach
             </select>
         </div>
-        <div class="col-12 col-md-2">
+        <div class="col-12 col-sm-6 col-md-2">
             <label class="filter-label-modern"><i class="bi bi-calendar-event"></i> Date</label>
             <input type="date" name="date" value="{{ request('date') }}" class="form-control filter-input-modern" max="{{ date('Y-m-d') }}">
         </div>
-        <div class="col-12 col-md-2 d-flex gap-2 align-items-end">
+        <div class="col-12 col-sm-12 col-md-2 d-flex gap-2 align-items-end">
             <button type="submit" class="btn filter-btn-modern btn-sm flex-fill">
-                <i class="bi bi-search"></i> Filter
+                <i class="bi bi-search"></i> <span class="d-none d-sm-inline">Filter</span>
             </button>
             @if(request('roll') || request('name') || request('class') || request('date'))
                 <a href="{{ route('students.index') }}" class="btn reset-btn-modern btn-sm flex-fill">
-                    <i class="bi bi-arrow-clockwise"></i> Reset
+                    <i class="bi bi-arrow-clockwise"></i> <span class="d-none d-sm-inline">Reset</span>
                 </a>
             @endif
         </div>
@@ -200,8 +302,8 @@
                     Overwrite all fields
                 </label>
             </div>
-            <button type="submit" class="btn btn-success w-100">
-                <i class="bi bi-cloud-arrow-up"></i> Upload
+            <button type="submit" class="btn btn-success w-100" style="min-height: 44px;">
+                <i class="bi bi-cloud-arrow-up"></i> <span class="d-none d-sm-inline">Upload</span>
             </button>
         </div>
     </form>
@@ -214,12 +316,12 @@
         <div>
             <span id="selectedCount" class="badge bg-primary" style="display: none;">0 selected</span>
         </div>
-        <div class="d-flex gap-2">
-            <select id="bulkAction" class="form-select form-select-sm" style="width: auto;" disabled>
+        <div class="d-flex gap-2 flex-wrap w-100 w-md-auto">
+            <select id="bulkAction" class="form-select form-select-sm flex-fill flex-md-none" style="min-width: 150px;" disabled>
                 <option value="">Bulk Actions...</option>
                 <option value="assign-class">Assign to Class</option>
             </select>
-            <button id="clearSelection" class="btn btn-sm btn-outline-secondary" style="display: none;">
+            <button id="clearSelection" class="btn btn-sm btn-outline-secondary flex-fill flex-md-none" style="display: none; min-height: 38px;">
                 <i class="bi bi-x-circle"></i> Clear
             </button>
         </div>
@@ -346,6 +448,111 @@
                 @endforelse
             </tbody>
         </table>
+    </div>
+    
+    <!-- Mobile-friendly card view -->
+    <div class="students-mobile-list">
+        @forelse($students as $student)
+            <div class="student-card-mobile">
+                @if(auth()->user()->isSuperAdmin())
+                    <div class="form-check mb-2">
+                        <input type="checkbox" class="form-check-input student-checkbox" value="{{ $student->roll_number }}" id="mobile-check-{{ $student->roll_number }}">
+                        <label class="form-check-label" for="mobile-check-{{ $student->roll_number }}">Select</label>
+                    </div>
+                @endif
+                <div class="student-header">
+                    <div class="student-info">
+                        <div class="student-name">
+                            <a href="{{ route('students.show', $student->roll_number) }}" class="text-decoration-none" style="color: var(--brand-accent-2);">
+                                {{ $student->name ?? 'N/A' }}
+                            </a>
+                            @if($student->deleted_at || $student->discontinued_at)
+                                <span class="badge bg-warning text-dark ms-2" style="font-size: 0.7rem;">
+                                    <i class="bi bi-x-circle"></i> Discontinued
+                                </span>
+                            @endif
+                        </div>
+                        <div class="student-roll">
+                            <i class="bi bi-person-badge"></i> 
+                            <a href="{{ route('students.show', $student->roll_number) }}" class="text-decoration-none" style="color: var(--brand-accent-2);">
+                                {{ $student->roll_number }}
+                            </a>
+                            @if($student->class_course)
+                                <span class="badge bg-info text-dark ms-2" style="font-size: 0.7rem;">
+                                    <i class="bi bi-book"></i> {{ $student->class_course }}
+                                </span>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="student-details">
+                    @if($student->father_name)
+                        <div class="student-detail-row">
+                            <span class="student-detail-label"><i class="bi bi-person"></i> Father:</span>
+                            <span class="student-detail-value">{{ $student->father_name }}</span>
+                        </div>
+                    @endif
+                    
+                    @if($student->parent_phone)
+                        <div class="student-detail-row">
+                            <span class="student-detail-label"><i class="bi bi-telephone"></i> Phone:</span>
+                            <span class="student-detail-value">
+                                <a href="tel:{{ $student->parent_phone }}" class="text-decoration-none">
+                                    {{ $student->parent_phone }}
+                                </a>
+                                @if($student->alerts_enabled)
+                                    <span class="badge bg-success ms-2" style="font-size: 0.7rem;">
+                                        <i class="bi bi-bell"></i> Alerts ON
+                                    </span>
+                                @else
+                                    <span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">
+                                        <i class="bi bi-bell-slash"></i> Alerts OFF
+                                    </span>
+                                @endif
+                            </span>
+                        </div>
+                    @endif
+                    
+                    @if($student->last_punch_date)
+                        <div class="student-detail-row">
+                            <span class="student-detail-label"><i class="bi bi-clock-history"></i> Last Punch:</span>
+                            <span class="student-detail-value">
+                                <div>
+                                    <small class="text-muted">{{ \Carbon\Carbon::parse($student->last_punch_date)->format('M d, Y') }}</small>
+                                    @if($student->last_punch_time)
+                                        <br><small class="text-muted">{{ $student->last_punch_time }}</small>
+                                    @endif
+                                </div>
+                            </span>
+                        </div>
+                    @else
+                        <div class="student-detail-row">
+                            <span class="student-detail-label"><i class="bi bi-clock-history"></i> Last Punch:</span>
+                            <span class="student-detail-value text-muted">No punches yet</span>
+                        </div>
+                    @endif
+                </div>
+                
+                <div class="student-actions">
+                    <a href="{{ route('students.show', $student->roll_number) }}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="bi bi-eye"></i> View Details
+                    </a>
+                </div>
+            </div>
+        @empty
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-inboxes" style="font-size: 3rem;"></i>
+                <p class="mt-3 mb-0">No students found</p>
+                @if($search)
+                    <div class="mt-2">
+                        <a href="{{ route('students.index') }}" class="btn btn-sm btn-outline-primary">
+                            View All Students
+                        </a>
+                    </div>
+                @endif
+            </div>
+        @endforelse
     </div>
 
     @if($students->hasPages())

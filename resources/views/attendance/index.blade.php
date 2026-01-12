@@ -2,23 +2,80 @@
 
 @section('content')
 <style>
+    /* Subtle background to reduce white appearance */
+    body {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        min-height: 100vh;
+    }
+    .container-wide {
+        background: transparent;
+    }
     .live-stat {
         background: linear-gradient(135deg, #4f46e5, #7c3aed);
         color: #fff;
         border: none;
-        box-shadow: 0 15px 35px rgba(79, 70, 229, 0.25);
-    }
-    .live-stat .stat-label { color: rgba(255,255,255,0.82); }
-    .live-stat .stat-value { color: #fff; }
-    .punch-card {
-        border: 1px solid #e9edf5;
-        border-radius: 14px;
-        box-shadow: 0 10px 30px rgba(15,23,42,0.08);
+        box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2),
+                    0 10px 20px rgba(79, 70, 229, 0.15),
+                    0 20px 40px rgba(79, 70, 229, 0.1);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
         overflow: hidden;
     }
+    .live-stat::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: shimmer 3s ease-in-out infinite;
+    }
+    .live-stat:hover {
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 8px 12px rgba(79, 70, 229, 0.25),
+                    0 20px 30px rgba(79, 70, 229, 0.2),
+                    0 30px 50px rgba(79, 70, 229, 0.15);
+    }
+    @keyframes shimmer {
+        0%, 100% { transform: translate(0, 0) rotate(0deg); }
+        50% { transform: translate(30%, 30%) rotate(180deg); }
+    }
+    .live-stat .stat-label { color: rgba(255,255,255,0.9); }
+    .live-stat .stat-value { color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .punch-card {
+        border: 1px solid #e9edf5;
+        border-radius: 16px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 
+                    0 10px 20px rgba(0, 0, 0, 0.05),
+                    0 20px 40px rgba(0, 0, 0, 0.03);
+        overflow: hidden;
+        background: #ffffff;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+    .punch-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+        background-size: 200% 100%;
+        animation: gradientShift 3s ease infinite;
+        opacity: 0.6;
+    }
+    .punch-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1), 
+                    0 20px 30px rgba(0, 0, 0, 0.08),
+                    0 30px 50px rgba(0, 0, 0, 0.05);
+    }
     .punch-card .card-header {
-        background: #f8fafc;
+        background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
         border-bottom: 1px solid #e5e7eb;
+        padding: 1rem 1.25rem;
     }
     .punch-chip {
         display: inline-flex;
@@ -42,14 +99,33 @@
         font-size: 12px;
     }
     .filters-card {
-        background: linear-gradient(135deg, #ffffff, #f8fafc);
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
         border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 20px rgba(15,23,42,0.08);
+        box-shadow: 0 4px 6px rgba(15,23,42,0.05),
+                    0 10px 20px rgba(15,23,42,0.04),
+                    0 20px 40px rgba(15,23,42,0.03);
         border-radius: 16px;
-        transition: all 0.3s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    .filters-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+        background-size: 200% 100%;
+        animation: gradientShift 3s ease infinite;
+        opacity: 0.5;
     }
     .filters-card:hover {
-        box-shadow: 0 6px 25px rgba(15,23,42,0.12);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 12px rgba(15,23,42,0.08),
+                    0 20px 30px rgba(15,23,42,0.06),
+                    0 30px 50px rgba(15,23,42,0.04);
     }
     .filter-input-modern {
         border: 2px solid #bae6fd;
@@ -110,9 +186,115 @@
         margin-bottom: 6px;
         display: block;
     }
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
     @media (max-width: 768px) {
         .live-stat .stat-value { font-size: 18px; }
         .stat-card { margin-bottom: 8px; }
+        /* Mobile filter form */
+        .filters-card {
+            padding: 1rem !important;
+        }
+        .filter-input-modern,
+        .filter-select-modern {
+            font-size: 16px; /* Prevents zoom on iOS */
+        }
+        .filter-btn-modern,
+        .reset-btn-modern {
+            min-height: 44px; /* Touch-friendly */
+            font-size: 0.9rem;
+        }
+        /* Mobile-optimized punch cards */
+        .punch-card {
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        }
+        .punch-card .card-header {
+            padding: 0.75rem;
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 0.5rem;
+        }
+        .punch-card .card-body {
+            padding: 0.75rem;
+        }
+        /* Hide table on mobile, show card view */
+        .punch-card .table-responsive {
+            display: none;
+        }
+        .punch-card .mobile-punch-list {
+            display: block;
+        }
+        /* Mobile punch item */
+        .mobile-punch-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        .mobile-punch-item:last-child {
+            margin-bottom: 0;
+        }
+        .mobile-punch-date {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .mobile-punch-times {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .mobile-punch-time-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .mobile-punch-time-row strong {
+            min-width: 50px;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+        .mobile-punch-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .mobile-punch-duration {
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+        /* Compact header badges */
+        .punch-card .card-header .badge {
+            font-size: 0.75rem;
+            padding: 0.35em 0.65em;
+        }
+        .punch-card .card-header .punch-chip {
+            font-size: 0.7rem;
+            padding: 0.25em 0.6em;
+        }
+    }
+    /* Desktop: show table, hide mobile view */
+    @media (min-width: 769px) {
+        .punch-card .mobile-punch-list {
+            display: none;
+        }
+        .punch-card .table-responsive {
+            display: block;
+        }
     }
     /* Auto-refresh button animations */
     .auto-refresh-btn {
@@ -182,7 +364,7 @@
 <div class="brand-card mb-3 filters-card">
     <div class="section-title mb-3"><i class="bi bi-funnel"></i> Filters</div>
     <form class="row g-3" method="get" action="{{ url($isEmployeeView ? '/employees/attendance' : '/attendance') }}" id="attendanceFilterForm">
-        <div class="col-12 col-md-3">
+        <div class="col-12 col-sm-6 col-md-3">
             <label class="filter-label-modern"><i class="bi bi-person-badge"></i> Roll / Employee ID</label>
             <input type="text" 
                    name="roll" 
@@ -193,7 +375,7 @@
                    autocomplete="off"
                    data-lpignore="true">
         </div>
-        <div class="col-12 col-md-3">
+        <div class="col-12 col-sm-6 col-md-3">
             <label class="filter-label-modern"><i class="bi bi-person"></i> Name (partial)</label>
             <input type="text" 
                    name="name" 
@@ -205,7 +387,7 @@
                    data-lpignore="true">
         </div>
         @if(!$isEmployeeView)
-        <div class="col-12 col-md-2">
+        <div class="col-12 col-sm-6 col-md-2">
             <label class="filter-label-modern"><i class="bi bi-book"></i> Class</label>
             <select name="class" class="form-select filter-select-modern" id="filterClass">
                 <option value="">All Classes</option>
@@ -219,7 +401,7 @@
             </select>
         </div>
         @endif
-        <div class="col-12 col-md-2">
+        <div class="col-12 col-sm-6 col-md-2">
             <label class="filter-label-modern"><i class="bi bi-calendar-event"></i> Date</label>
             <input type="date" 
                    name="date" 
@@ -228,12 +410,12 @@
                    class="form-control filter-input-modern" 
                    max="{{ date('Y-m-d') }}">
         </div>
-        <div class="col-12 col-md-2 d-flex gap-2 align-items-end">
+        <div class="col-12 col-sm-12 col-md-2 d-flex gap-2 align-items-end">
             <button type="submit" class="btn filter-btn-modern btn-sm flex-fill">
-                <i class="bi bi-search"></i> Filter
+                <i class="bi bi-search"></i> <span class="d-none d-sm-inline">Filter</span>
             </button>
             <a class="btn reset-btn-modern btn-sm flex-fill" href="{{ url($isEmployeeView ? '/employees/attendance' : '/attendance') }}">
-                <i class="bi bi-arrow-clockwise"></i> Reset
+                <i class="bi bi-arrow-clockwise"></i> <span class="d-none d-sm-inline">Reset</span>
             </a>
         </div>
     </form>
@@ -348,45 +530,49 @@
             @endphp
             <div class="card mb-3 punch-card">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div>
-                        @if($displayName)
-                            @if($firstPunch->student_name)
-                                <a href="{{ route('students.show', $rollNumber) }}" class="text-decoration-none text-dark fw-bold">
-                                    {{ $displayName }}
-                                </a>
-                                @if($firstPunch->student_deleted_at || $firstPunch->student_discontinued_at)
-                                    <span class="badge bg-warning text-dark ms-2" title="Discontinued">
-                                        <i class="bi bi-x-circle"></i> Discontinued
-                                    </span>
-                                @endif
-                            @elseif($firstPunch->employee_name)
-                                <a href="{{ route('employees.show', $rollNumber) }}" class="text-decoration-none text-dark fw-bold">
-                                    {{ $displayName }}
-                                </a>
-                                @if($firstPunch->employee_discontinued_at || !$firstPunch->employee_is_active)
-                                    <span class="badge bg-warning text-dark ms-2" title="Discontinued">
-                                        <i class="bi bi-x-circle"></i> Discontinued
-                                    </span>
+                    <div class="flex-grow-1" style="min-width: 0;">
+                        <div class="d-flex align-items-center flex-wrap gap-1 mb-1">
+                            @if($displayName)
+                                @if($firstPunch->student_name)
+                                    <a href="{{ route('students.show', $rollNumber) }}" class="text-decoration-none text-dark fw-bold" style="font-size: 1rem;">
+                                        {{ $displayName }}
+                                    </a>
+                                    @if($firstPunch->student_deleted_at || $firstPunch->student_discontinued_at)
+                                        <span class="badge bg-warning text-dark" title="Discontinued" style="font-size: 0.7rem;">
+                                            <i class="bi bi-x-circle"></i> Discontinued
+                                        </span>
+                                    @endif
+                                @elseif($firstPunch->employee_name)
+                                    <a href="{{ route('employees.show', $rollNumber) }}" class="text-decoration-none text-dark fw-bold" style="font-size: 1rem;">
+                                        {{ $displayName }}
+                                    </a>
+                                    @if($firstPunch->employee_discontinued_at || !$firstPunch->employee_is_active)
+                                        <span class="badge bg-warning text-dark" title="Discontinued" style="font-size: 0.7rem;">
+                                            <i class="bi bi-x-circle"></i> Discontinued
+                                        </span>
+                                    @endif
+                                @else
+                                    <span class="fw-bold text-dark" style="font-size: 1rem;">{{ $displayName }}</span>
                                 @endif
                             @else
-                                <span class="fw-bold text-dark">{{ $displayName }}</span>
+                                <span class="fw-bold text-warning" style="font-size: 1rem;">Unmapped</span>
                             @endif
-                        @else
-                            <span class="fw-bold text-warning">Unmapped</span>
-                        @endif
-                        @if($isEmployee || $isEmployeeView)
-                            <span class="badge bg-dark ms-2" title="Employee">Employee</span>
-                        @endif
-                        <span class="text-muted ms-2">(Roll: {{ $rollNumber }})</span>
-                        @if($firstPunch->class_course)
-                            <span class="punch-chip ms-2">
-                                <i class="bi bi-book"></i> {{ $firstPunch->class_course }}
-                            </span>
-                        @elseif($firstPunch->employee_category)
-                            <span class="punch-chip ms-2">
-                                <i class="bi bi-briefcase"></i> {{ $firstPunch->employee_category === 'academic' ? 'Academic' : 'Non-academic' }}
-                            </span>
-                        @endif
+                            @if($isEmployee || $isEmployeeView)
+                                <span class="badge bg-dark" title="Employee" style="font-size: 0.7rem;">Employee</span>
+                            @endif
+                        </div>
+                        <div class="d-flex align-items-center flex-wrap gap-1" style="font-size: 0.85rem;">
+                            <span class="text-muted"><i class="bi bi-person-badge"></i> {{ $rollNumber }}</span>
+                            @if($firstPunch->class_course)
+                                <span class="punch-chip">
+                                    <i class="bi bi-book"></i> {{ $firstPunch->class_course }}
+                                </span>
+                            @elseif($firstPunch->employee_category)
+                                <span class="punch-chip">
+                                    <i class="bi bi-briefcase"></i> {{ $firstPunch->employee_category === 'academic' ? 'Academic' : 'Non-academic' }}
+                                </span>
+                            @endif
+                        </div>
                     </div>
                     <div class="d-flex align-items-center gap-2 flex-wrap">
                         <span class="badge bg-primary">{{ $punchCount }} {{ $punchCount === 1 ? 'punch' : 'punches' }}</span>
@@ -405,12 +591,12 @@
                             <button type="button"
                                     class="btn btn-sm btn-outline-primary {{ $isEmployeeView ? 'd-none' : '' }} create-student-btn"
                                     data-roll="{{ $rollNumber }}">
-                                <i class="bi bi-person-plus"></i> Create student
+                                <i class="bi bi-person-plus"></i> <span class="d-none d-md-inline">Create student</span>
                             </button>
                             <button type="button"
                                     class="btn btn-sm btn-outline-secondary create-employee-btn"
                                     data-roll="{{ $rollNumber }}">
-                                <i class="bi bi-briefcase"></i> Create employee
+                                <i class="bi bi-briefcase"></i> <span class="d-none d-md-inline">Create employee</span>
                             </button>
                         @else
                             @php
@@ -458,16 +644,20 @@
                                                 <td>
                                                     @if($pair['in'])
                                                         <div>
-                                                            <span class="badge bg-success" style="font-size: 0.9rem;"><i class="bi bi-box-arrow-in-right"></i> {{ $pair['in'] }}</span>
-                                                            @if(!empty($pair['is_manual_in']))
-                                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;" title="Manually marked IN{{ isset($pair['marked_by_in']) && $pair['marked_by_in'] ? ' by ' . $pair['marked_by_in']->name : '' }}">
-                                                                    <i class="bi bi-pencil"></i> Manual
-                                                                    @if(isset($pair['marked_by_in']) && $pair['marked_by_in'])
-                                                                        <small class="d-block mt-1" style="font-size: 0.6rem; color: #666;">
-                                                                            by {{ $pair['marked_by_in']->name }}
-                                                                        </small>
-                                                                    @endif
-                                                                </span>
+                                                            <div class="d-flex align-items-center gap-1 flex-wrap">
+                                                                <span class="badge bg-success" style="font-size: 0.9rem;"><i class="bi bi-box-arrow-in-right"></i> {{ $pair['in'] }}</span>
+                                                                @if(!empty($pair['is_manual_in']))
+                                                                    <span class="badge bg-warning text-dark" style="font-size: 0.7rem;" title="Manually marked IN{{ isset($pair['marked_by_in']) && $pair['marked_by_in'] ? ' by ' . $pair['marked_by_in']->name : '' }}">
+                                                                        <i class="bi bi-pencil"></i> Manual
+                                                                    </span>
+                                                                @endif
+                                                            </div>
+                                                            @if(!empty($pair['is_manual_in']) && isset($pair['marked_by_in']) && $pair['marked_by_in'])
+                                                                <div class="mt-1 d-flex align-items-center gap-1">
+                                                                    <small class="text-primary" style="font-size: 0.8rem; font-weight: 500;">
+                                                                        <i class="bi bi-person-fill"></i> Marked by: <strong style="color: #1e40af;">{{ is_object($pair['marked_by_in']) ? $pair['marked_by_in']->name : $pair['marked_by_in'] }}</strong>
+                                                                    </small>
+                                                                </div>
                                                             @endif
                                                         </div>
                                                     @else
@@ -477,23 +667,25 @@
                                                 <td>
                                                     @if($pair['out'])
                                                         <div>
-                                                            <span class="badge bg-danger" style="font-size: 0.9rem;"><i class="bi bi-box-arrow-right"></i> {{ $pair['out'] }}</span>
-                                                            @if(!empty($pair['is_manual_out']))
-                                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;" title="Manually marked OUT{{ isset($pair['marked_by_out']) && $pair['marked_by_out'] ? ' by ' . $pair['marked_by_out']->name : '' }}">
-                                                                    <i class="bi bi-pencil"></i> Manual
-                                                                    @if(isset($pair['marked_by_out']) && $pair['marked_by_out'])
-                                                                        <small class="d-block mt-1" style="font-size: 0.6rem; color: #666;">
-                                                                            by {{ $pair['marked_by_out']->name }}
-                                                                        </small>
-                                                                    @endif
-                                                                </span>
-                                                            @endif
-                                                            @if(isset($pair['is_auto_out']) && $pair['is_auto_out'])
-                                                                <small class="d-block mt-1">
-                                                                    <span class="badge bg-warning text-dark" style="font-size: 0.7rem;" title="Automatically marked OUT at 7 PM">
+                                                            <div class="d-flex align-items-center gap-1 flex-wrap">
+                                                                <span class="badge bg-danger" style="font-size: 0.9rem;"><i class="bi bi-box-arrow-right"></i> {{ $pair['out'] }}</span>
+                                                                @if(!empty($pair['is_manual_out']))
+                                                                    <span class="badge bg-warning text-dark" style="font-size: 0.7rem;" title="Manually marked OUT{{ isset($pair['marked_by_out']) && $pair['marked_by_out'] ? ' by ' . $pair['marked_by_out']->name : '' }}">
+                                                                        <i class="bi bi-pencil"></i> Manual
+                                                                    </span>
+                                                                @endif
+                                                                @if(isset($pair['is_auto_out']) && $pair['is_auto_out'])
+                                                                    <span class="badge bg-info text-dark" style="font-size: 0.7rem;" title="Automatically marked OUT at 7 PM">
                                                                         <i class="bi bi-clock"></i> Auto OUT
                                                                     </span>
-                                                                </small>
+                                                                @endif
+                                                            </div>
+                                                            @if(!empty($pair['is_manual_out']) && isset($pair['marked_by_out']) && $pair['marked_by_out'])
+                                                                <div class="mt-1 d-flex align-items-center gap-1">
+                                                                    <small class="text-primary" style="font-size: 0.8rem; font-weight: 500;">
+                                                                        <i class="bi bi-person-fill"></i> Marked by: <strong style="color: #1e40af;">{{ is_object($pair['marked_by_out']) ? $pair['marked_by_out']->name : $pair['marked_by_out'] }}</strong>
+                                                                    </small>
+                                                                </div>
                                                             @endif
                                                         </div>
                                                     @else
@@ -530,6 +722,100 @@
                                 @endforeach
                             </tbody>
                         </table>
+                    </div>
+                    
+                    <!-- Mobile-friendly card view -->
+                    <div class="mobile-punch-list">
+                        @foreach ($dailyPairs as $d)
+                            @php
+                                $dateObj = \Carbon\Carbon::parse($d['date']);
+                                $hasPairs = !empty($d['pairs']);
+                            @endphp
+                            @if($hasPairs)
+                                @foreach ($d['pairs'] as $pairIndex => $pair)
+                                    <div class="mobile-punch-item">
+                                        <div class="mobile-punch-date">
+                                            <i class="bi bi-calendar text-primary"></i>
+                                            <span>{{ $dateObj->format('M d, Y') }}</span>
+                                            <small class="text-muted ms-2">({{ $dateObj->format('D') }})</small>
+                                            <span class="badge bg-secondary ms-auto" style="font-size: 0.7rem;">Pair {{ $pairIndex + 1 }}</span>
+                                        </div>
+                                        <div class="mobile-punch-times">
+                                            <div class="mobile-punch-time-row">
+                                                <strong>IN:</strong>
+                                                @if($pair['in'])
+                                                    <span class="badge bg-success" style="font-size: 0.85rem;">
+                                                        <i class="bi bi-box-arrow-in-right"></i> {{ $pair['in'] }}
+                                                    </span>
+                                                    @if(!empty($pair['is_manual_in']))
+                                                        <span class="badge bg-warning text-dark" style="font-size: 0.7rem;">
+                                                            <i class="bi bi-pencil"></i> Manual
+                                                        </span>
+                                                    @endif
+                                                @else
+                                                    <span class="text-muted">—</span>
+                                                @endif
+                                            </div>
+                                            @if(!empty($pair['is_manual_in']) && isset($pair['marked_by_in']) && $pair['marked_by_in'])
+                                                <div class="ms-4 mt-1 mb-2">
+                                                    <small class="text-primary" style="font-size: 0.8rem; font-weight: 500;">
+                                                        <i class="bi bi-person-fill"></i> Marked by: <strong style="color: #1e40af;">{{ is_object($pair['marked_by_in']) ? $pair['marked_by_in']->name : $pair['marked_by_in'] }}</strong>
+                                                    </small>
+                                                </div>
+                                            @endif
+                                            
+                                            <div class="mobile-punch-time-row">
+                                                <strong>OUT:</strong>
+                                                @if($pair['out'])
+                                                    <span class="badge bg-danger" style="font-size: 0.85rem;">
+                                                        <i class="bi bi-box-arrow-right"></i> {{ $pair['out'] }}
+                                                    </span>
+                                                    @if(!empty($pair['is_manual_out']))
+                                                        <span class="badge bg-warning text-dark" style="font-size: 0.7rem;">
+                                                            <i class="bi bi-pencil"></i> Manual
+                                                        </span>
+                                                    @endif
+                                                    @if(isset($pair['is_auto_out']) && $pair['is_auto_out'])
+                                                        <span class="badge bg-info text-dark" style="font-size: 0.7rem;" title="Automatically marked OUT at 7 PM">
+                                                            <i class="bi bi-clock"></i> Auto OUT
+                                                        </span>
+                                                    @endif
+                                                @else
+                                                    <span class="text-muted">—</span>
+                                                @endif
+                                            </div>
+                                            @if(!empty($pair['is_manual_out']) && isset($pair['marked_by_out']) && $pair['marked_by_out'])
+                                                <div class="ms-4 mt-1 mb-2">
+                                                    <small class="text-primary" style="font-size: 0.8rem; font-weight: 500;">
+                                                        <i class="bi bi-person-fill"></i> Marked by: <strong style="color: #1e40af;">{{ is_object($pair['marked_by_out']) ? $pair['marked_by_out']->name : $pair['marked_by_out'] }}</strong>
+                                                    </small>
+                                                </div>
+                                            @endif
+                                            
+                                            @if($pair['in'] && $pair['out'])
+                                                @php
+                                                    $inTime = \Carbon\Carbon::parse($d['date'] . ' ' . $pair['in']);
+                                                    $outTime = \Carbon\Carbon::parse($d['date'] . ' ' . $pair['out']);
+                                                    $duration = $inTime->diff($outTime);
+                                                @endphp
+                                                <div class="mobile-punch-duration">
+                                                    <i class="bi bi-clock text-primary"></i> Duration: <strong>{{ $duration->format('%h:%I') }}</strong>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            @else
+                                <div class="mobile-punch-item">
+                                    <div class="mobile-punch-date">
+                                        <i class="bi bi-calendar text-primary"></i>
+                                        <span>{{ $dateObj->format('M d, Y') }}</span>
+                                        <small class="text-muted ms-2">({{ $dateObj->format('D') }})</small>
+                                    </div>
+                                    <div class="text-muted" style="font-size: 0.85rem;">No valid attendance pairs</div>
+                                </div>
+                            @endif
+                        @endforeach
                     </div>
 
                     @if($isEmployee && auth()->user()->isSuperAdmin())
@@ -578,7 +864,7 @@
                     @endif
 
                     @if(!$rendered)
-                        <div class="table-responsive mt-2">
+                        <div class="table-responsive mt-2 d-none d-md-block">
                             <table class="table table-striped table-hover align-middle mb-0" style="font-size: 0.95rem;">
                                 <thead class="table-light">
                                     <tr>
@@ -602,6 +888,31 @@
                                     @endforeach
                                 </tbody>
                             </table>
+                        </div>
+                        <!-- Mobile view for raw punches -->
+                        <div class="mobile-punch-list d-md-none">
+                            @php $raw = $studentPunches->sortByDesc('punch_date')->sortByDesc('punch_time')->values(); @endphp
+                            @foreach($raw as $r)
+                                <div class="mobile-punch-item">
+                                    <div class="mobile-punch-date">
+                                        <i class="bi bi-calendar text-primary"></i>
+                                        <span>{{ \Carbon\Carbon::parse($r->punch_date)->format('M d, Y') }}</span>
+                                        <small class="text-muted ms-2">({{ \Carbon\Carbon::parse($r->punch_date)->format('D') }})</small>
+                                    </div>
+                                    <div class="mobile-punch-times">
+                                        <div class="mobile-punch-time-row">
+                                            <strong>IN:</strong>
+                                            <span class="badge bg-success" style="font-size: 0.85rem;">
+                                                <i class="bi bi-box-arrow-in-right"></i> {{ $r->punch_time }}
+                                            </span>
+                                        </div>
+                                        <div class="mobile-punch-time-row">
+                                            <strong>OUT:</strong>
+                                            <span class="text-muted">—</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
                     @endif
                 </div>

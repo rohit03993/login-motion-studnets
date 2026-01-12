@@ -171,6 +171,73 @@
             .nav-links.show {
                 display: flex !important;
             }
+            /* Mobile Navigation Menu */
+            .mobile-menu-toggle {
+                background: rgba(255, 255, 255, 0.2);
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                color: white;
+                padding: 8px 12px;
+                border-radius: 8px;
+                font-size: 1.5rem;
+                cursor: pointer;
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 44px;
+                min-height: 44px;
+                transition: all 0.3s ease;
+            }
+            .mobile-menu-toggle:hover {
+                background: rgba(255, 255, 255, 0.3) !important;
+                transform: scale(1.05);
+            }
+            .mobile-menu-toggle.active {
+                background: rgba(255, 255, 255, 0.3) !important;
+            }
+            .mobile-menu-toggle i {
+                font-size: 1.5rem;
+            }
+            .nav-links-mobile {
+                display: none;
+                flex-direction: column;
+                width: 100%;
+                margin-top: 12px;
+                gap: 4px;
+                max-height: calc(100vh - 120px);
+                overflow-y: auto;
+                padding-top: 8px;
+            }
+            .nav-links-mobile.show {
+                display: flex !important;
+            }
+            .nav-links-mobile .nav-link {
+                width: 100%;
+                padding: 12px 16px;
+                border-radius: 8px;
+                min-height: 44px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .nav-links-mobile .nav-link i {
+                flex-shrink: 0;
+                width: 20px;
+                text-align: center;
+            }
+            .nav-links-mobile .nav-link span {
+                flex: 1;
+            }
+            .mobile-user-section {
+                border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+                margin-top: 8px;
+                padding-top: 8px;
+            }
+            .mobile-dropdown {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
             .nav-links a, .nav-links .dropdown > a {
                 padding: 12px 16px;
                 border-radius: 8px;
@@ -522,6 +589,10 @@
                     <img src="{{ asset('storage/' . $companyLogo) }}" alt="Company Logo" style="max-height: 35px; max-width: 150px; object-fit: contain;">
                 </a>
             @endif
+            <!-- Mobile Hamburger Menu Button -->
+            <button type="button" class="mobile-menu-toggle d-md-none ms-auto" id="mobileMenuToggle" aria-label="Toggle menu">
+                <i class="bi bi-list" id="mobileMenuIcon"></i>
+            </button>
             <div class="nav-links d-none d-md-flex gap-1" style="flex-shrink: 0;">
                 <a href="{{ url('/attendance') }}" class="nav-link {{ request()->is('attendance*') && !request()->is('students*') ? 'active' : '' }}">
                     <i class="bi bi-list-ul"></i> Live Attendance
@@ -558,7 +629,7 @@
                 @endif
             </div>
             @auth
-                <div class="dropdown ms-auto" id="userDropdownContainer" style="flex-shrink: 0;">
+                <div class="dropdown ms-auto d-none d-md-block" id="userDropdownContainer" style="flex-shrink: 0;">
                     <button type="button" class="dropdown-toggle-btn d-flex align-items-center gap-1" id="userDropdownBtn" style="white-space: nowrap;">
                         <i class="bi bi-person-circle"></i> <span style="white-space: nowrap;">{{ auth()->user()->name }}</span>
                         @if(auth()->user()->isSuperAdmin())
@@ -575,6 +646,55 @@
                             </form>
                         </li>
                     </ul>
+                </div>
+            @endauth
+        </div>
+        <!-- Mobile Navigation Menu -->
+        <div class="nav-links-mobile d-md-none" id="mobileNavLinks">
+            <a href="{{ url('/attendance') }}" class="nav-link {{ request()->is('attendance*') && !request()->is('students*') ? 'active' : '' }}">
+                <i class="bi bi-list-ul"></i> <span>Live Attendance</span>
+            </a>
+            <a href="{{ route('students.index') }}" class="nav-link {{ request()->is('students*') ? 'active' : '' }}">
+                <i class="bi bi-people"></i> <span>Students</span>
+            </a>
+            @if($canViewEmployees)
+                <a href="{{ route('employees.attendance') }}" class="nav-link {{ request()->routeIs('employees.attendance') ? 'active' : '' }}">
+                    <i class="bi bi-briefcase"></i> <span>Employee Attendance</span>
+                </a>
+            @endif
+            <a href="{{ route('manual-attendance.index') }}" class="nav-link {{ request()->is('manual-attendance') && !request()->is('manual-attendance/employee*') ? 'active' : '' }}">
+                <i class="bi bi-pencil-square"></i> <span>Manual Attendance</span>
+            </a>
+            @if(auth()->user()->isSuperAdmin())
+                <div class="mobile-dropdown">
+                    <a href="{{ url('/settings') }}" class="nav-link {{ request()->is('settings*') ? 'active' : '' }}">
+                        <i class="bi bi-gear"></i> <span>System Settings</span>
+                    </a>
+                    <a href="{{ route('courses.index') }}" class="nav-link ps-4 {{ request()->is('students/courses*') ? 'active' : '' }}">
+                        <i class="bi bi-book"></i> <span>Manage Classes</span>
+                    </a>
+                    <a href="{{ route('employees.index') }}" class="nav-link ps-4 {{ (request()->is('employees*') && !request()->routeIs('employees.attendance')) ? 'active' : '' }}">
+                        <i class="bi bi-people-fill"></i> <span>Manage Employees</span>
+                    </a>
+                </div>
+            @endif
+            @auth
+                <div class="mobile-user-section border-top mt-2 pt-2">
+                    <div class="nav-link" style="color: rgba(255, 255, 255, 0.8);">
+                        <i class="bi bi-person-circle"></i> <span>{{ auth()->user()->name }}</span>
+                        @if(auth()->user()->isSuperAdmin())
+                            <span class="badge ms-2" style="background: rgba(255, 193, 7, 0.9); color: #000; font-weight: 600;">Admin</span>
+                        @endif
+                    </div>
+                    <a href="{{ route('profile.change-password') }}" class="nav-link">
+                        <i class="bi bi-key"></i> <span>Change Password</span>
+                    </a>
+                    <form method="POST" action="{{ route('logout') }}" class="d-inline">
+                        @csrf
+                        <button type="submit" class="nav-link w-100 text-start" style="background: none; border: none; color: inherit;">
+                            <i class="bi bi-box-arrow-right"></i> <span>Logout</span>
+                        </button>
+                    </form>
                 </div>
             @endauth
         </div>
@@ -777,6 +897,70 @@
     }
     
     console.log('=== DROPDOWN DEBUG END ===');
+    
+    // Mobile Menu Toggle
+    function initMobileMenu() {
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+        const mobileNavLinks = document.getElementById('mobileNavLinks');
+        const mobileMenuIcon = document.getElementById('mobileMenuIcon');
+        
+        if (mobileMenuToggle && mobileNavLinks && mobileMenuIcon) {
+            mobileMenuToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const isOpen = mobileNavLinks.classList.contains('show');
+                
+                if (isOpen) {
+                    // Close menu
+                    mobileNavLinks.classList.remove('show');
+                    mobileMenuToggle.classList.remove('active');
+                    mobileMenuIcon.classList.remove('bi-x');
+                    mobileMenuIcon.classList.add('bi-list');
+                } else {
+                    // Open menu
+                    mobileNavLinks.classList.add('show');
+                    mobileMenuToggle.classList.add('active');
+                    mobileMenuIcon.classList.remove('bi-list');
+                    mobileMenuIcon.classList.add('bi-x');
+                }
+            });
+            
+            // Close menu when clicking outside
+            document.addEventListener('click', function(e) {
+                if (mobileNavLinks.classList.contains('show')) {
+                    if (!mobileNavLinks.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+                        mobileNavLinks.classList.remove('show');
+                        mobileMenuToggle.classList.remove('active');
+                        mobileMenuIcon.classList.remove('bi-x');
+                        mobileMenuIcon.classList.add('bi-list');
+                    }
+                }
+            });
+            
+            // Close menu when clicking on a nav link
+            const mobileNavLinksItems = mobileNavLinks.querySelectorAll('.nav-link');
+            mobileNavLinksItems.forEach(function(link) {
+                link.addEventListener('click', function() {
+                    setTimeout(function() {
+                        mobileNavLinks.classList.remove('show');
+                        mobileMenuToggle.classList.remove('active');
+                        mobileMenuIcon.classList.remove('bi-x');
+                        mobileMenuIcon.classList.add('bi-list');
+                    }, 100);
+                });
+            });
+            
+            console.log('Mobile menu initialized');
+        }
+    }
+    
+    // Initialize mobile menu
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initMobileMenu);
+    } else {
+        initMobileMenu();
+    }
 </script>
 @stack('scripts')
 </body>

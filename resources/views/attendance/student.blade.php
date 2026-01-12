@@ -1,6 +1,239 @@
 @extends('layouts.app', ['title' => 'Student Profile'])
 
 @section('content')
+<style>
+    /* Modern 3D card effects */
+    .profile-stat-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 1.25rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07),
+                    0 10px 20px rgba(0, 0, 0, 0.05),
+                    0 20px 40px rgba(0, 0, 0, 0.03);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    .profile-stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+        background-size: 200% 100%;
+        animation: gradientShift 3s ease infinite;
+        opacity: 0.6;
+    }
+    .profile-stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1),
+                    0 20px 30px rgba(0, 0, 0, 0.08),
+                    0 30px 50px rgba(0, 0, 0, 0.05);
+    }
+    .profile-stat-card .stat-label {
+        color: #64748b;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+    }
+    .profile-stat-card .stat-value {
+        color: #1e293b;
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    /* Modern info card */
+    .info-card-modern {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07),
+                    0 10px 20px rgba(0, 0, 0, 0.05),
+                    0 20px 40px rgba(0, 0, 0, 0.03);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    .info-card-modern::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+        background-size: 200% 100%;
+        animation: gradientShift 3s ease infinite;
+        opacity: 0.6;
+    }
+    .info-card-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1),
+                    0 20px 30px rgba(0, 0, 0, 0.08);
+    }
+    /* Info field modern style */
+    .info-field-modern {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1rem;
+        transition: all 0.2s ease;
+    }
+    .info-field-modern:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        transform: translateX(4px);
+    }
+    .info-field-modern .info-label {
+        color: #64748b;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .info-field-modern .info-value {
+        color: #1e293b;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    /* Date filter modern */
+    .date-filter-modern {
+        background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+        border: 1px solid #bae6fd;
+        border-radius: 16px;
+        padding: 1.25rem;
+        box-shadow: 0 4px 6px rgba(14, 165, 233, 0.1);
+    }
+    .date-filter-modern .form-control {
+        border: 2px solid #bae6fd;
+        border-radius: 10px;
+        font-size: 16px; /* Prevents iOS zoom */
+    }
+    .date-filter-modern .form-control:focus {
+        border-color: #0ea5e9;
+        box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+    }
+    /* Accordion modern styling */
+    .accordion-item {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px !important;
+        margin-bottom: 0.75rem;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    .accordion-button {
+        background: #f8fafc;
+        border: none;
+        font-weight: 600;
+        padding: 1rem 1.25rem;
+    }
+    .accordion-button:not(.collapsed) {
+        background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+        color: #1e293b;
+        box-shadow: none;
+    }
+    .accordion-button:focus {
+        box-shadow: none;
+        border-color: transparent;
+    }
+    .accordion-body {
+        padding: 1.25rem;
+        background: #ffffff;
+    }
+    /* Mobile optimizations */
+    @media (max-width: 768px) {
+        .profile-stat-card {
+            margin-bottom: 1rem;
+        }
+        .info-field-modern {
+            margin-bottom: 1rem;
+        }
+        .date-filter-modern {
+            margin-top: 1rem;
+        }
+        .date-filter-modern .btn {
+            min-height: 44px;
+            font-size: 0.9rem;
+        }
+        /* Convert form mobile styling */
+        .border-top form {
+            width: 100%;
+        }
+        .border-top .form-select,
+        .border-top .btn {
+            width: 100% !important;
+            min-height: 44px;
+            font-size: 0.9rem;
+        }
+        /* Hide table on mobile, show card view */
+        .table-responsive {
+            display: none;
+        }
+        .attendance-mobile-list {
+            display: block;
+        }
+        /* Mobile attendance item */
+        .attendance-mobile-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        .attendance-mobile-item:last-child {
+            margin-bottom: 0;
+        }
+        .attendance-mobile-item .pair-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .attendance-mobile-item .pair-number {
+            font-weight: 600;
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+        .attendance-mobile-item .time-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        .attendance-mobile-item .time-label {
+            font-weight: 600;
+            color: #475569;
+            min-width: 60px;
+            font-size: 0.85rem;
+        }
+    }
+    /* Desktop: show table, hide mobile view */
+    @media (min-width: 769px) {
+        .attendance-mobile-list {
+            display: none;
+        }
+        .table-responsive {
+            display: block;
+        }
+    }
+</style>
 <!-- Student Profile Header -->
 <div class="brand-card mb-3">
     <div class="row g-3 align-items-center">
@@ -25,50 +258,52 @@
             
             <div class="row g-3">
                 <div class="col-6 col-md-4">
-                    <div class="stat-card">
-                        <div class="stat-label">Roll Number</div>
-                        <div class="stat-value" style="font-size: 20px;">{{ $roll }}</div>
+                    <div class="profile-stat-card">
+                        <div class="stat-label"><i class="bi bi-person-badge"></i> Roll Number</div>
+                        <div class="stat-value">{{ $roll }}</div>
                     </div>
                 </div>
                 <div class="col-6 col-md-4">
-                    <div class="stat-card">
-                        <div class="stat-label">Total Punches</div>
+                    <div class="profile-stat-card">
+                        <div class="stat-label"><i class="bi bi-list-check"></i> Total Punches</div>
                         <div class="stat-value">{{ count($raw) }}</div>
                     </div>
                 </div>
                 <div class="col-6 col-md-4">
-                    <div class="stat-card">
-                        <div class="stat-label">Active Days</div>
+                    <div class="profile-stat-card">
+                        <div class="stat-label"><i class="bi bi-calendar-check"></i> Active Days</div>
                         <div class="stat-value">{{ count($daily) }}</div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-12 col-md-4">
-            <form class="row gy-2 gx-2" method="get" action="{{ url('/students/'.$roll) }}">
-                <div class="col-12">
-                    <label class="form-label"><i class="bi bi-calendar-range"></i> Date Range</label>
-                </div>
-                <div class="col-6">
-                    <input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}" class="form-control" placeholder="From">
-                </div>
-                <div class="col-6">
-                    <input type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}" class="form-control" placeholder="To">
-                </div>
-                <div class="col-6">
-                    <button class="btn btn-primary w-100"><i class="bi bi-search"></i> Filter</button>
-                </div>
-                <div class="col-6">
-                    <a class="btn btn-outline-secondary w-100" href="{{ url('/students/'.$roll) }}"><i class="bi bi-arrow-clockwise"></i> Reset</a>
-                </div>
-            </form>
+            <div class="date-filter-modern">
+                <form class="row gy-2 gx-2" method="get" action="{{ url('/students/'.$roll) }}">
+                    <div class="col-12">
+                        <label class="form-label fw-bold"><i class="bi bi-calendar-range"></i> Date Range</label>
+                    </div>
+                    <div class="col-6">
+                        <input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}" class="form-control" placeholder="From">
+                    </div>
+                    <div class="col-6">
+                        <input type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}" class="form-control" placeholder="To">
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-primary w-100" style="min-height: 44px;"><i class="bi bi-search"></i> Filter</button>
+                    </div>
+                    <div class="col-6">
+                        <a class="btn btn-outline-secondary w-100" href="{{ url('/students/'.$roll) }}" style="min-height: 44px;"><i class="bi bi-arrow-clockwise"></i> Reset</a>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Student Information Card -->
-<div class="brand-card mb-3">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+<div class="info-card-modern mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
         <div class="section-title mb-0"><i class="bi bi-info-circle"></i> Student Information</div>
         <button type="button" class="btn btn-outline-primary btn-sm" id="editStudentBtn">
             <i class="bi bi-pencil"></i> Edit
@@ -90,68 +325,96 @@
     
     <!-- Read-Only View -->
     <div id="studentInfoView" class="row g-3">
-        <div class="col-6 col-md-3">
-            <div class="muted small mb-1">Name</div>
-            <div class="fw-medium">{{ $student->name ?? '—' }}</div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="muted small mb-1">Father's Name</div>
-            <div class="fw-medium">{{ $student->father_name ?? '—' }}</div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="muted small mb-1">Class/Course</div>
-            <div class="fw-medium">{{ $student->class_course ?? '—' }}</div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="muted small mb-1">Batch</div>
-            <div class="fw-medium">{{ $student->batch ?? '—' }}</div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="muted small mb-1">Primary Mobile</div>
-            <div class="fw-medium">
-                @if($student->parent_phone)
-                    <a href="tel:{{ $student->parent_phone }}" class="text-decoration-none">
-                        <i class="bi bi-telephone"></i> {{ $student->parent_phone }}
-                    </a>
-                @else
-                    —
-                @endif
+        <div class="col-12 col-sm-6 col-md-4">
+            <div class="info-field-modern">
+                <div class="info-label"><i class="bi bi-person"></i> Name</div>
+                <div class="info-value">{{ $student->name ?? '—' }}</div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="muted small mb-1">Secondary Mobile</div>
-            <div class="fw-medium">
-                @if($student->parent_phone_secondary)
-                    <a href="tel:{{ $student->parent_phone_secondary }}" class="text-decoration-none">
-                        <i class="bi bi-telephone"></i> {{ $student->parent_phone_secondary }}
-                    </a>
-                @else
-                    —
-                @endif
+        <div class="col-12 col-sm-6 col-md-4">
+            <div class="info-field-modern">
+                <div class="info-label"><i class="bi bi-person-badge"></i> Father's Name</div>
+                <div class="info-value">{{ $student->father_name ?? '—' }}</div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="muted small mb-1">WhatsApp Send To</div>
-            <div>
-                @if($student->whatsapp_send_to === 'primary')
-                    <span class="badge bg-primary"><i class="bi bi-phone"></i> Primary Only</span>
-                @elseif($student->whatsapp_send_to === 'secondary')
-                    <span class="badge bg-info"><i class="bi bi-phone"></i> Secondary Only</span>
-                @elseif($student->whatsapp_send_to === 'both')
-                    <span class="badge bg-success"><i class="bi bi-phone"></i> Both Numbers</span>
-                @else
-                    <span class="badge bg-secondary">Primary Only</span>
-                @endif
+        <div class="col-12 col-sm-6 col-md-4">
+            <div class="info-field-modern">
+                <div class="info-label"><i class="bi bi-book"></i> Class/Course</div>
+                <div class="info-value">
+                    @if($student->class_course)
+                        <span class="badge bg-primary" style="font-size: 0.9rem;"><i class="bi bi-book"></i> {{ $student->class_course }}</span>
+                    @else
+                        <span class="text-muted">—</span>
+                    @endif
+                </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="muted small mb-1">WhatsApp Alerts</div>
-            <div>
-                @if($student->alerts_enabled)
-                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Enabled</span>
-                @else
-                    <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Disabled</span>
-                @endif
+        <div class="col-12 col-sm-6 col-md-4">
+            <div class="info-field-modern">
+                <div class="info-label"><i class="bi bi-collection"></i> Batch</div>
+                <div class="info-value">
+                    @if($student->batch)
+                        <span class="badge bg-info text-dark" style="font-size: 0.9rem;"><i class="bi bi-collection"></i> {{ $student->batch }}</span>
+                    @else
+                        <span class="text-muted">—</span>
+                    @endif
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-md-4">
+            <div class="info-field-modern">
+                <div class="info-label"><i class="bi bi-telephone"></i> Primary Mobile</div>
+                <div class="info-value">
+                    @if($student->parent_phone)
+                        <a href="tel:{{ $student->parent_phone }}" class="text-decoration-none" style="color: var(--brand-accent-2);">
+                            <i class="bi bi-telephone-fill"></i> {{ $student->parent_phone }}
+                        </a>
+                    @else
+                        <span class="text-muted">—</span>
+                    @endif
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-md-4">
+            <div class="info-field-modern">
+                <div class="info-label"><i class="bi bi-telephone-plus"></i> Secondary Mobile</div>
+                <div class="info-value">
+                    @if($student->parent_phone_secondary)
+                        <a href="tel:{{ $student->parent_phone_secondary }}" class="text-decoration-none" style="color: var(--brand-accent-2);">
+                            <i class="bi bi-telephone-fill"></i> {{ $student->parent_phone_secondary }}
+                        </a>
+                    @else
+                        <span class="text-muted">—</span>
+                    @endif
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-md-4">
+            <div class="info-field-modern">
+                <div class="info-label"><i class="bi bi-whatsapp"></i> WhatsApp Send To</div>
+                <div class="info-value">
+                    @if($student->whatsapp_send_to === 'primary')
+                        <span class="badge bg-primary" style="font-size: 0.9rem;"><i class="bi bi-phone"></i> Primary Only</span>
+                    @elseif($student->whatsapp_send_to === 'secondary')
+                        <span class="badge bg-info" style="font-size: 0.9rem;"><i class="bi bi-phone"></i> Secondary Only</span>
+                    @elseif($student->whatsapp_send_to === 'both')
+                        <span class="badge bg-success" style="font-size: 0.9rem;"><i class="bi bi-phone"></i> Both Numbers</span>
+                    @else
+                        <span class="badge bg-secondary" style="font-size: 0.9rem;">Primary Only</span>
+                    @endif
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-md-4">
+            <div class="info-field-modern">
+                <div class="info-label"><i class="bi bi-bell"></i> WhatsApp Alerts</div>
+                <div class="info-value">
+                    @if($student->alerts_enabled)
+                        <span class="badge bg-success" style="font-size: 0.9rem;"><i class="bi bi-check-circle-fill"></i> Enabled</span>
+                    @else
+                        <span class="badge bg-secondary" style="font-size: 0.9rem;"><i class="bi bi-x-circle"></i> Disabled</span>
+                    @endif
+                </div>
             </div>
         </div>
     </div>
@@ -212,29 +475,33 @@
             $canConvertToEmployee = !$existingEmployee;
         @endphp
         <div class="mt-3 pt-3 border-top">
-            <div class="d-flex align-items-center gap-2">
-                <div class="muted small">Profile Type:</div>
-                <span class="badge bg-primary">
-                    <i class="bi bi-person-badge"></i> Student
-                </span>
+            <div class="row g-2 align-items-center">
+                <div class="col-12 col-md-auto">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="muted small">Profile Type:</div>
+                        <span class="badge bg-primary">
+                            <i class="bi bi-person-badge"></i> Student
+                        </span>
+                    </div>
+                </div>
                 @if($canConvertToEmployee)
-                    <form method="POST" action="{{ route('students.convert-to-employee', $roll) }}" 
-                          onsubmit="return confirm('⚠️ Transform this student profile to an employee profile?\n\n- Student profile will be PERMANENTLY DELETED\n- Employee profile will be created with same roll number\n- All attendance data will be preserved\n- Name, father name, and phone will be transferred\n\nYou will need to select employee category (Academic/Non-Academic).\n\nThis action cannot be undone. Continue?');" 
-                          style="display: inline;" class="ms-auto">
-                        @csrf
-                        <div class="d-flex gap-2 align-items-center">
-                            <select name="category" class="form-select form-select-sm" style="width: auto;" required>
+                    <div class="col-12 col-md">
+                        <form method="POST" action="{{ route('students.convert-to-employee', $roll) }}" 
+                              onsubmit="return confirm('⚠️ Transform this student profile to an employee profile?\n\n- Student profile will be PERMANENTLY DELETED\n- Employee profile will be created with same roll number\n- All attendance data will be preserved\n- Name, father name, and phone will be transferred\n\nYou will need to select employee category (Academic/Non-Academic).\n\nThis action cannot be undone. Continue?');" 
+                              class="d-flex flex-column flex-md-row gap-2">
+                            @csrf
+                            <select name="category" class="form-select form-select-sm flex-grow-1" required style="min-width: 150px;">
                                 <option value="">Select Category</option>
                                 <option value="academic">Academic</option>
                                 <option value="non_academic">Non-Academic</option>
                             </select>
-                            <button type="submit" class="btn btn-info btn-sm">
+                            <button type="submit" class="btn btn-info btn-sm flex-shrink-0" style="white-space: nowrap; min-height: 38px;">
                                 <i class="bi bi-arrow-right-circle"></i> Convert to Employee
                             </button>
-                        </div>
-                    </form>
+                        </form>
+                    </div>
                 @else
-                    <div class="ms-auto">
+                    <div class="col-12 col-md-auto">
                         <span class="badge bg-warning text-dark">
                             <i class="bi bi-exclamation-triangle"></i> Employee profile already exists ({{ $existingEmployee->isActiveEmployee() ? 'Active' : 'Discontinued' }})
                         </span>
@@ -319,7 +586,7 @@
 </div>
 
 <!-- Daily Attendance Timeline -->
-<div class="brand-card mb-3">
+<div class="info-card-modern mb-3">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="section-title mb-0"><i class="bi bi-calendar-check"></i> Daily Attendance Timeline</div>
         @if(isset($totalDuration))
@@ -446,13 +713,25 @@
                                                     <td>
                                                         @if($pair['out'])
                                                             <div>
-                                                                <span class="badge bg-danger"><i class="bi bi-box-arrow-right"></i> {{ $pair['out'] }}</span>
-                                                                @if(isset($pair['is_auto_out']) && $pair['is_auto_out'])
-                                                                    <small class="d-block mt-1">
-                                                                        <span class="badge bg-warning text-dark" style="font-size: 0.7rem;" title="Automatically marked OUT at 7 PM">
+                                                                <div class="d-flex align-items-center gap-1 flex-wrap">
+                                                                    <span class="badge bg-danger"><i class="bi bi-box-arrow-right"></i> {{ $pair['out'] }}</span>
+                                                                    @if(isset($pair['is_manual_out']) && $pair['is_manual_out'])
+                                                                        <span class="badge bg-warning text-dark" style="font-size: 0.7rem;">
+                                                                            <i class="bi bi-pencil"></i> Manual
+                                                                        </span>
+                                                                    @endif
+                                                                    @if(isset($pair['is_auto_out']) && $pair['is_auto_out'])
+                                                                        <span class="badge bg-info text-dark" style="font-size: 0.7rem;" title="Automatically marked OUT at 7 PM">
                                                                             <i class="bi bi-clock"></i> Auto OUT
                                                                         </span>
-                                                                    </small>
+                                                                    @endif
+                                                                </div>
+                                                                @if(isset($pair['is_manual_out']) && $pair['is_manual_out'] && isset($pair['marked_by_out']) && $pair['marked_by_out'])
+                                                                    <div class="mt-1">
+                                                                        <small class="text-primary" style="font-size: 0.8rem; font-weight: 500;">
+                                                                            <i class="bi bi-person-fill"></i> Marked by: <strong style="color: #1e40af;">{{ is_object($pair['marked_by_out']) ? $pair['marked_by_out']->name : $pair['marked_by_out'] }}</strong>
+                                                                        </small>
+                                                                    </div>
                                                                 @endif
                                                             </div>
                                                             @if(isset($pair['whatsapp_out']))
@@ -506,6 +785,97 @@
                                             @endforeach
                                         </tbody>
                                     </table>
+                                </div>
+                                
+                                <!-- Mobile-friendly card view -->
+                                <div class="attendance-mobile-list">
+                                    @foreach ($d['pairs'] as $pairIndex => $pair)
+                                        <div class="attendance-mobile-item">
+                                            <div class="pair-header">
+                                                <span class="pair-number">Pair {{ $pairIndex + 1 }}</span>
+                                                @if($pair['in'] && $pair['out'])
+                                                    @php
+                                                        $inTime = \Carbon\Carbon::parse($d['date'] . ' ' . $pair['in']);
+                                                        $outTime = \Carbon\Carbon::parse($d['date'] . ' ' . $pair['out']);
+                                                        $duration = $inTime->diff($outTime);
+                                                    @endphp
+                                                    <span class="badge bg-info text-dark">
+                                                        <i class="bi bi-clock"></i> {{ $duration->format('%h:%I') }}
+                                                    </span>
+                                                @endif
+                                            </div>
+                                            
+                                            <div class="time-row">
+                                                <span class="time-label">IN:</span>
+                                                @if($pair['in'])
+                                                    <span class="badge bg-success" style="font-size: 0.85rem;">
+                                                        <i class="bi bi-box-arrow-in-right"></i> {{ $pair['in'] }}
+                                                    </span>
+                                                    @if(isset($pair['is_manual_in']) && $pair['is_manual_in'])
+                                                        <span class="badge bg-warning text-dark" style="font-size: 0.7rem;">
+                                                            <i class="bi bi-pencil"></i> Manual
+                                                        </span>
+                                                    @endif
+                                                @else
+                                                    <span class="text-muted">—</span>
+                                                @endif
+                                            </div>
+                                            @if(isset($pair['is_manual_in']) && $pair['is_manual_in'] && isset($pair['marked_by_in']) && $pair['marked_by_in'])
+                                                <div class="ms-4 mt-1 mb-2">
+                                                    <small class="text-primary" style="font-size: 0.8rem; font-weight: 500;">
+                                                        <i class="bi bi-person-fill"></i> Marked by: <strong style="color: #1e40af;">{{ is_object($pair['marked_by_in']) ? $pair['marked_by_in']->name : $pair['marked_by_in'] }}</strong>
+                                                    </small>
+                                                </div>
+                                            @endif
+                                            
+                                            <div class="time-row">
+                                                <span class="time-label">OUT:</span>
+                                                @if($pair['out'])
+                                                    <span class="badge bg-danger" style="font-size: 0.85rem;">
+                                                        <i class="bi bi-box-arrow-right"></i> {{ $pair['out'] }}
+                                                    </span>
+                                                    @if(isset($pair['is_manual_out']) && $pair['is_manual_out'])
+                                                        <span class="badge bg-warning text-dark" style="font-size: 0.7rem;">
+                                                            <i class="bi bi-pencil"></i> Manual
+                                                        </span>
+                                                    @endif
+                                                    @if(isset($pair['is_auto_out']) && $pair['is_auto_out'])
+                                                        <span class="badge bg-info text-dark" style="font-size: 0.7rem;">
+                                                            <i class="bi bi-clock"></i> Auto OUT
+                                                        </span>
+                                                    @endif
+                                                @else
+                                                    <span class="text-muted">—</span>
+                                                @endif
+                                            </div>
+                                            @if(isset($pair['is_manual_out']) && $pair['is_manual_out'] && isset($pair['marked_by_out']) && $pair['marked_by_out'])
+                                                <div class="ms-4 mt-1 mb-2">
+                                                    <small class="text-primary" style="font-size: 0.8rem; font-weight: 500;">
+                                                        <i class="bi bi-person-fill"></i> Marked by: <strong style="color: #1e40af;">{{ is_object($pair['marked_by_out']) ? $pair['marked_by_out']->name : $pair['marked_by_out'] }}</strong>
+                                                    </small>
+                                                </div>
+                                            @endif
+                                            
+                                            @if(isset($pair['whatsapp_in']) || isset($pair['whatsapp_out']))
+                                                <div class="mt-2 pt-2 border-top">
+                                                    <div class="d-flex flex-wrap gap-1">
+                                                        @if(isset($pair['whatsapp_in']))
+                                                            @php $waIn = $pair['whatsapp_in']; @endphp
+                                                            <span class="badge {{ $waIn->status === 'success' ? 'bg-success' : ($waIn->status === 'failed' ? 'bg-danger' : 'bg-secondary') }}" style="font-size: 0.7rem;">
+                                                                <i class="bi bi-whatsapp"></i> IN: {{ $waIn->status === 'success' ? 'Sent' : ($waIn->status === 'failed' ? 'Failed' : 'Pending') }}
+                                                            </span>
+                                                        @endif
+                                                        @if(isset($pair['whatsapp_out']))
+                                                            @php $waOut = $pair['whatsapp_out']; @endphp
+                                                            <span class="badge {{ $waOut->status === 'success' ? 'bg-success' : ($waOut->status === 'failed' ? 'bg-danger' : 'bg-secondary') }}" style="font-size: 0.7rem;">
+                                                                <i class="bi bi-whatsapp"></i> OUT: {{ $waOut->status === 'success' ? 'Sent' : ($waOut->status === 'failed' ? 'Failed' : 'Pending') }}
+                                                            </span>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endforeach
                                 </div>
                             @else
                                 <div class="text-center py-3">
