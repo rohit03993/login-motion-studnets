@@ -534,7 +534,7 @@
                         <i class="bi bi-briefcase"></i> Employee Attendance
                     </a>
                 @endif
-                <a href="{{ route('manual-attendance.index') }}" class="nav-link {{ request()->is('manual-attendance*') ? 'active' : '' }}">
+                <a href="{{ route('manual-attendance.index') }}" class="nav-link {{ request()->is('manual-attendance') && !request()->is('manual-attendance/employee*') ? 'active' : '' }}">
                     <i class="bi bi-pencil-square"></i> Manual Attendance
                 </a>
                 @if(auth()->user()->isSuperAdmin())

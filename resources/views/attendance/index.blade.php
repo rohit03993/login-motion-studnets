@@ -460,8 +460,13 @@
                                                         <div>
                                                             <span class="badge bg-success" style="font-size: 0.9rem;"><i class="bi bi-box-arrow-in-right"></i> {{ $pair['in'] }}</span>
                                                             @if(!empty($pair['is_manual_in']))
-                                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;" title="Manually marked IN">
+                                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;" title="Manually marked IN{{ isset($pair['marked_by_in']) && $pair['marked_by_in'] ? ' by ' . $pair['marked_by_in']->name : '' }}">
                                                                     <i class="bi bi-pencil"></i> Manual
+                                                                    @if(isset($pair['marked_by_in']) && $pair['marked_by_in'])
+                                                                        <small class="d-block mt-1" style="font-size: 0.6rem; color: #666;">
+                                                                            by {{ $pair['marked_by_in']->name }}
+                                                                        </small>
+                                                                    @endif
                                                                 </span>
                                                             @endif
                                                         </div>
@@ -474,8 +479,13 @@
                                                         <div>
                                                             <span class="badge bg-danger" style="font-size: 0.9rem;"><i class="bi bi-box-arrow-right"></i> {{ $pair['out'] }}</span>
                                                             @if(!empty($pair['is_manual_out']))
-                                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;" title="Manually marked OUT">
+                                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;" title="Manually marked OUT{{ isset($pair['marked_by_out']) && $pair['marked_by_out'] ? ' by ' . $pair['marked_by_out']->name : '' }}">
                                                                     <i class="bi bi-pencil"></i> Manual
+                                                                    @if(isset($pair['marked_by_out']) && $pair['marked_by_out'])
+                                                                        <small class="d-block mt-1" style="font-size: 0.6rem; color: #666;">
+                                                                            by {{ $pair['marked_by_out']->name }}
+                                                                        </small>
+                                                                    @endif
                                                                 </span>
                                                             @endif
                                                             @if(isset($pair['is_auto_out']) && $pair['is_auto_out'])
@@ -521,6 +531,51 @@
                             </tbody>
                         </table>
                     </div>
+
+                    @if($isEmployee && auth()->user()->isSuperAdmin())
+                    <!-- Manual Attendance Buttons for Employees (Super Admin Only) -->
+                    <div class="mt-3 pt-3 border-top">
+                        <div class="d-flex gap-2 flex-wrap">
+                            @php
+                                // Check attendance status for the selected date
+                                $selectedDate = $filters['date'] ?? date('Y-m-d');
+                                $hasInForDate = false;
+                                $hasOutForDate = false;
+                                
+                                // Check if this date has IN/OUT in the pairs
+                                foreach ($dailyPairs as $d) {
+                                    if ($d['date'] === $selectedDate) {
+                                        foreach ($d['pairs'] as $pair) {
+                                            if ($pair['in']) {
+                                                $hasInForDate = true;
+                                            }
+                                            if ($pair['out']) {
+                                                $hasOutForDate = true;
+                                            }
+                                        }
+                                        break;
+                                    }
+                                }
+                            @endphp
+                            
+                            @if(!$hasInForDate)
+                                <button type="button" class="btn btn-success btn-sm mark-in-btn-employee" 
+                                        data-roll="{{ $rollNumber }}" 
+                                        data-date="{{ $selectedDate }}">
+                                    <i class="bi bi-box-arrow-in-right"></i> Mark IN
+                                </button>
+                            @endif
+                            
+                            @if($hasInForDate && !$hasOutForDate)
+                                <button type="button" class="btn btn-danger btn-sm mark-out-btn-employee" 
+                                        data-roll="{{ $rollNumber }}" 
+                                        data-date="{{ $selectedDate }}">
+                                    <i class="bi bi-box-arrow-right"></i> Mark OUT
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
 
                     @if(!$rendered)
                         <div class="table-responsive mt-2">
@@ -629,6 +684,48 @@
         </div>
     </div>
 </div>
+
+<!-- Time Input Modal for Employee Manual Attendance -->
+@if($isEmployeeView && auth()->user()->isSuperAdmin())
+<div class="modal fade" id="timeInputModalEmployee" tabindex="-1" aria-labelledby="timeInputModalEmployeeLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="timeInputModalEmployeeLabel">Enter Time</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="timeInputFormEmployee">
+                    <div class="mb-3">
+                        <label for="punchTimeEmployee" class="form-label">
+                            <i class="bi bi-clock"></i> Time (HH:MM format)
+                        </label>
+                        <input type="time" class="form-control" id="punchTimeEmployee" name="punchTime" required>
+                        <div class="form-text">Enter the time for this manual attendance entry</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmTimeBtnEmployee">
+                    <i class="bi bi-check-circle"></i> Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success/Error Toast for Employee -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 11;">
+    <div id="toastEmployee" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto" id="toast-title-employee">Notification</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body" id="toast-message-employee"></div>
+    </div>
+</div>
+@endif
 
 @endsection
 
@@ -867,6 +964,132 @@ document.addEventListener('DOMContentLoaded', function() {
             clearInterval(countdownInterval);
         }
     });
+
+    @if($isEmployeeView && auth()->user()->isSuperAdmin())
+    // Employee Manual Attendance Marking
+    const toastEmployeeEl = document.getElementById('toastEmployee');
+    const toastEmployeeTitle = document.getElementById('toast-title-employee');
+    const toastEmployeeMessage = document.getElementById('toast-message-employee');
+    const toastEmployee = toastEmployeeEl ? new bootstrap.Toast(toastEmployeeEl) : null;
+    
+    const timeInputModalEmployee = document.getElementById('timeInputModalEmployee');
+    const timeInputModalEmployeeInstance = timeInputModalEmployee ? new bootstrap.Modal(timeInputModalEmployee) : null;
+    const punchTimeInputEmployee = document.getElementById('punchTimeEmployee');
+    const confirmTimeBtnEmployee = document.getElementById('confirmTimeBtnEmployee');
+    const timeInputFormEmployee = document.getElementById('timeInputFormEmployee');
+    
+    let pendingActionEmployee = null;
+    let pendingRollEmployee = null;
+    let pendingDateEmployee = null;
+    
+    function showToastEmployee(title, message, type = 'success') {
+        if (!toastEmployee) return;
+        toastEmployeeTitle.textContent = title;
+        toastEmployeeMessage.textContent = message;
+        toastEmployeeEl.className = 'toast';
+        if (type === 'success') {
+            toastEmployeeEl.classList.add('text-bg-success');
+        } else {
+            toastEmployeeEl.classList.add('text-bg-danger');
+        }
+        toastEmployee.show();
+    }
+    
+    function submitEmployeeAttendance(action, rollNumber, date, time) {
+        const url = action === 'present' 
+            ? '{{ route("manual-attendance.employee.mark-present") }}'
+            : '{{ route("manual-attendance.employee.mark-out") }}';
+        
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                roll_number: rollNumber,
+                date: date,
+                time: time
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (timeInputModalEmployeeInstance) timeInputModalEmployeeInstance.hide();
+            if (data.success) {
+                showToastEmployee('Success', data.message, 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showToastEmployee('Error', data.message || 'Failed to mark attendance', 'error');
+            }
+        })
+        .catch(error => {
+            if (timeInputModalEmployeeInstance) timeInputModalEmployeeInstance.hide();
+            showToastEmployee('Error', 'An error occurred. Please try again.', 'error');
+            console.error('Error:', error);
+        });
+    }
+    
+    // Handle Mark IN buttons for employees
+    document.querySelectorAll('.mark-in-btn-employee').forEach(btn => {
+        btn.addEventListener('click', function() {
+            pendingActionEmployee = 'present';
+            pendingRollEmployee = this.getAttribute('data-roll');
+            pendingDateEmployee = this.getAttribute('data-date');
+            
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            if (punchTimeInputEmployee) punchTimeInputEmployee.value = `${hours}:${minutes}`;
+            
+            if (timeInputModalEmployeeInstance) timeInputModalEmployeeInstance.show();
+        });
+    });
+    
+    // Handle Mark OUT buttons for employees
+    document.querySelectorAll('.mark-out-btn-employee').forEach(btn => {
+        btn.addEventListener('click', function() {
+            pendingActionEmployee = 'out';
+            pendingRollEmployee = this.getAttribute('data-roll');
+            pendingDateEmployee = this.getAttribute('data-date');
+            
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            if (punchTimeInputEmployee) punchTimeInputEmployee.value = `${hours}:${minutes}`;
+            
+            if (timeInputModalEmployeeInstance) timeInputModalEmployeeInstance.show();
+        });
+    });
+    
+    // Handle confirm button
+    if (confirmTimeBtnEmployee) {
+        confirmTimeBtnEmployee.addEventListener('click', function() {
+            if (!punchTimeInputEmployee || !punchTimeInputEmployee.value) {
+                showToastEmployee('Error', 'Please enter a time', 'error');
+                return;
+            }
+            
+            if (pendingActionEmployee && pendingRollEmployee && pendingDateEmployee) {
+                const timeValue = punchTimeInputEmployee.value;
+                submitEmployeeAttendance(pendingActionEmployee, pendingRollEmployee, pendingDateEmployee, timeValue);
+            }
+        });
+    }
+    
+    // Reset modal when closed
+    if (timeInputModalEmployee) {
+        timeInputModalEmployee.addEventListener('hidden.bs.modal', function() {
+            if (timeInputFormEmployee) timeInputFormEmployee.reset();
+            pendingActionEmployee = null;
+            pendingRollEmployee = null;
+            pendingDateEmployee = null;
+        });
+    }
+    @endif
 });
 </script>
 @endpush

@@ -189,8 +189,13 @@
                                             <div>
                                                 {{ $item['in_time'] ?? 'N/A' }}
                                                 @if($item['is_manual'])
-                                                    <span class="badge bg-warning text-dark ms-1" title="Manually marked">
+                                                    <span class="badge bg-warning text-dark ms-1" title="Manually marked{{ $item['marked_by_in'] ? ' by ' . $item['marked_by_in']->name : '' }}">
                                                         <i class="bi bi-pencil"></i> Manual
+                                                        @if($item['marked_by_in'])
+                                                            <small class="d-block mt-1" style="font-size: 0.7rem; color: #666;">
+                                                                by {{ $item['marked_by_in']->name }}
+                                                            </small>
+                                                        @endif
                                                     </span>
                                                 @endif
                                             </div>
@@ -199,8 +204,13 @@
                                             <div>
                                             {{ $item['out_time'] ?? '-' }}
                                                 @if(($item['out_time'] ?? null) && !empty($item['is_manual_out']))
-                                                    <span class="badge bg-warning text-dark ms-1" title="Manually marked OUT">
+                                                    <span class="badge bg-warning text-dark ms-1" title="Manually marked OUT{{ $item['marked_by_out'] ? ' by ' . $item['marked_by_out']->name : '' }}">
                                                         <i class="bi bi-pencil"></i> Manual
+                                                        @if($item['marked_by_out'])
+                                                            <small class="d-block mt-1" style="font-size: 0.7rem; color: #666;">
+                                                                by {{ $item['marked_by_out']->name }}
+                                                            </small>
+                                                        @endif
                                                     </span>
                                                 @endif
                                             </div>

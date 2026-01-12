@@ -113,6 +113,13 @@ Route::middleware('auth')->group(function () {
         Route::post('/mark-out', [ManualAttendanceController::class, 'markOut'])->name('mark-out');
     });
 
+    // Employee Manual Attendance (Super Admin only)
+    Route::prefix('manual-attendance/employee')->name('manual-attendance.employee.')->middleware('superadmin')->group(function () {
+        Route::get('/', [ManualAttendanceController::class, 'employeeIndex'])->name('index');
+        Route::post('/mark-present', [ManualAttendanceController::class, 'markEmployeePresent'])->name('mark-present');
+        Route::post('/mark-out', [ManualAttendanceController::class, 'markEmployeeOut'])->name('mark-out');
+    });
+
     // User Management (Super Admin Only)
     Route::prefix('users')->name('users.')->middleware('superadmin')->group(function () {
         Route::get('/', [UserController::class, 'index'])->name('index');

@@ -262,6 +262,17 @@
                                     <i class="bi bi-x-circle text-danger" style="font-size: 3rem;"></i>
                                     <p class="mt-3 mb-0 text-danger fw-bold">There is no attendance record for this date till now</p>
                                     <p class="text-muted small mt-2">Attendance will be recorded when employee punches IN</p>
+                                    
+                                    @if(auth()->user()->isSuperAdmin())
+                                    <!-- Manual Attendance Button for Absent Date (Super Admin Only) -->
+                                    <div class="mt-3">
+                                        <button type="button" class="btn btn-success btn-sm mark-in-btn" 
+                                                data-roll="{{ $roll }}" 
+                                                data-date="{{ $d['date'] }}">
+                                            <i class="bi bi-box-arrow-in-right"></i> Mark IN
+                                        </button>
+                                    </div>
+                                    @endif
                                 </div>
                             @elseif($hasPairs)
                                 <div class="table-responsive">
@@ -281,6 +292,16 @@
                                                         @if($pair['in'])
                                                             <div>
                                                                 <span class="badge bg-success"><i class="bi bi-box-arrow-in-right"></i> {{ $pair['in'] }}</span>
+                                                                @if(isset($pair['is_manual_in']) && $pair['is_manual_in'])
+                                                                    <span class="badge bg-warning text-dark ms-1" title="Manually marked{{ isset($pair['marked_by_in']) && $pair['marked_by_in'] ? ' by ' . $pair['marked_by_in']->name : '' }}">
+                                                                        <i class="bi bi-pencil"></i> Manual
+                                                                        @if(isset($pair['marked_by_in']) && $pair['marked_by_in'])
+                                                                            <small class="d-block mt-1" style="font-size: 0.6rem; color: #666;">
+                                                                                by {{ $pair['marked_by_in']->name }}
+                                                                            </small>
+                                                                        @endif
+                                                                    </span>
+                                                                @endif
                                                             </div>
                                                             @if(isset($pair['whatsapp_in']))
                                                                 @php $waIn = $pair['whatsapp_in']; @endphp
@@ -318,6 +339,16 @@
                                                         @if($pair['out'])
                                                             <div>
                                                                 <span class="badge bg-danger"><i class="bi bi-box-arrow-right"></i> {{ $pair['out'] }}</span>
+                                                                @if(isset($pair['is_manual_out']) && $pair['is_manual_out'])
+                                                                    <span class="badge bg-warning text-dark ms-1" title="Manually marked OUT{{ isset($pair['marked_by_out']) && $pair['marked_by_out'] ? ' by ' . $pair['marked_by_out']->name : '' }}">
+                                                                        <i class="bi bi-pencil"></i> Manual
+                                                                        @if(isset($pair['marked_by_out']) && $pair['marked_by_out'])
+                                                                            <small class="d-block mt-1" style="font-size: 0.6rem; color: #666;">
+                                                                                by {{ $pair['marked_by_out']->name }}
+                                                                            </small>
+                                                                        @endif
+                                                                    </span>
+                                                                @endif
                                                                 @if(isset($pair['is_auto_out']) && $pair['is_auto_out'])
                                                                     <small class="d-block mt-1">
                                                                         <span class="badge bg-warning text-dark" style="font-size: 0.7rem;" title="Automatically marked OUT at 7 PM">
@@ -383,6 +414,45 @@
                                     <span class="text-muted">No valid attendance pairs for this date</span>
                                 </div>
                             @endif
+                            
+                            @if(auth()->user()->isSuperAdmin())
+                            <!-- Manual Attendance Buttons (Super Admin Only) -->
+                            <div class="mt-3 pt-3 border-top">
+                                <div class="d-flex gap-2 flex-wrap">
+                                    @php
+                                        // Check if this date has IN mark
+                                        $hasInForDate = false;
+                                        $hasOutForDate = false;
+                                        if ($hasPairs && !$isAbsent) {
+                                            foreach ($d['pairs'] as $pair) {
+                                                if ($pair['in']) {
+                                                    $hasInForDate = true;
+                                                }
+                                                if ($pair['out']) {
+                                                    $hasOutForDate = true;
+                                                }
+                                            }
+                                        }
+                                    @endphp
+                                    
+                                    @if(!$hasInForDate)
+                                        <button type="button" class="btn btn-success btn-sm mark-in-btn" 
+                                                data-roll="{{ $roll }}" 
+                                                data-date="{{ $d['date'] }}">
+                                            <i class="bi bi-box-arrow-in-right"></i> Mark IN
+                                        </button>
+                                    @endif
+                                    
+                                    @if($hasInForDate && !$hasOutForDate)
+                                        <button type="button" class="btn btn-danger btn-sm mark-out-btn" 
+                                                data-roll="{{ $roll }}" 
+                                                data-date="{{ $d['date'] }}">
+                                            <i class="bi bi-box-arrow-right"></i> Mark OUT
+                                        </button>
+                                    @endif
+                                </div>
+                            </div>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -398,5 +468,175 @@
         </div>
     @endif
 </div>
+
+<!-- Time Input Modal (Same style as students) -->
+<div class="modal fade" id="timeInputModal" tabindex="-1" aria-labelledby="timeInputModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="timeInputModalLabel">Enter Time</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="timeInputForm">
+                    <div class="mb-3">
+                        <label for="punchTime" class="form-label">
+                            <i class="bi bi-clock"></i> Time (HH:MM format)
+                        </label>
+                        <input type="time" class="form-control" id="punchTime" name="punchTime" required>
+                        <div class="form-text">Enter the time for this manual attendance entry</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmTimeBtn">
+                    <i class="bi bi-check-circle"></i> Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success/Error Toast -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 11;">
+    <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto" id="toast-title">Notification</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body" id="toast-message"></div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toastEl = document.getElementById('toast');
+    const toastTitle = document.getElementById('toast-title');
+    const toastMessage = document.getElementById('toast-message');
+    const toast = new bootstrap.Toast(toastEl);
+    
+    // Time Input Modal
+    const timeInputModal = new bootstrap.Modal(document.getElementById('timeInputModal'));
+    const punchTimeInput = document.getElementById('punchTime');
+    const confirmTimeBtn = document.getElementById('confirmTimeBtn');
+    const timeInputForm = document.getElementById('timeInputForm');
+    
+    let pendingAction = null; // Store the action to execute after time input
+    let pendingRoll = null;
+    let pendingDate = null;
+    
+    function showToast(title, message, type = 'success') {
+        toastTitle.textContent = title;
+        toastMessage.textContent = message;
+        toastEl.className = 'toast';
+        if (type === 'success') {
+            toastEl.classList.add('text-bg-success');
+        } else {
+            toastEl.classList.add('text-bg-danger');
+        }
+        toast.show();
+    }
+    
+    function submitEmployeeAttendance(action, rollNumber, date, time) {
+        const url = action === 'present' 
+            ? '{{ route("manual-attendance.employee.mark-present") }}'
+            : '{{ route("manual-attendance.employee.mark-out") }}';
+        
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                roll_number: rollNumber,
+                date: date,
+                time: time
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            timeInputModal.hide();
+            if (data.success) {
+                showToast('Success', data.message, 'success');
+                // Reload page after 1 second to show updated attendance
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showToast('Error', data.message || 'Failed to mark attendance', 'error');
+            }
+        })
+        .catch(error => {
+            timeInputModal.hide();
+            showToast('Error', 'An error occurred. Please try again.', 'error');
+            console.error('Error:', error);
+        });
+    }
+    
+    // Handle Mark IN buttons
+    document.querySelectorAll('.mark-in-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            pendingAction = 'present';
+            pendingRoll = this.getAttribute('data-roll');
+            pendingDate = this.getAttribute('data-date');
+            
+            // Set default time to current time
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            punchTimeInput.value = `${hours}:${minutes}`;
+            
+            // Show modal
+            timeInputModal.show();
+        });
+    });
+    
+    // Handle Mark OUT buttons
+    document.querySelectorAll('.mark-out-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            pendingAction = 'out';
+            pendingRoll = this.getAttribute('data-roll');
+            pendingDate = this.getAttribute('data-date');
+            
+            // Set default time to current time
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            punchTimeInput.value = `${hours}:${minutes}`;
+            
+            // Show modal
+            timeInputModal.show();
+        });
+    });
+    
+    // Handle confirm button
+    confirmTimeBtn.addEventListener('click', function() {
+        if (!punchTimeInput.value) {
+            showToast('Error', 'Please enter a time', 'error');
+            return;
+        }
+        
+        if (pendingAction && pendingRoll && pendingDate) {
+            // Extract time in HH:MM format
+            const timeValue = punchTimeInput.value; // Already in HH:MM format from time input
+            submitEmployeeAttendance(pendingAction, pendingRoll, pendingDate, timeValue);
+        }
+    });
+    
+    // Reset modal when closed
+    document.getElementById('timeInputModal').addEventListener('hidden.bs.modal', function() {
+        timeInputForm.reset();
+        pendingAction = null;
+        pendingRoll = null;
+        pendingDate = null;
+    });
+});
+</script>
+@endpush
 
 @endsection

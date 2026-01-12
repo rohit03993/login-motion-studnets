@@ -19,6 +19,108 @@ class ManualAttendanceController extends Controller
     private ?bool $punchLogsHasIsManual = null;
     
     /**
+     * Show employee manual attendance marking page
+     * Displays present/absent employees for selected date
+     * Super Admin only
+     */
+    public function employeeIndex(Request $request)
+    {
+        $date = $request->query('date', Carbon::today()->format('Y-m-d'));
+        $rollFilter = $request->query('roll');
+        $nameFilter = $request->query('name');
+        $categoryFilter = $request->query('category'); // 'academic', 'non_academic', or null for all
+        
+        // Enforce minimum attendance date
+        if ($date < self::MIN_ATTENDANCE_DATE) {
+            $date = self::MIN_ATTENDANCE_DATE;
+        }
+        
+        $presentEmployees = collect([]);
+        $absentEmployees = collect([]);
+        
+        // Statistics counters
+        $statsIn = 0;
+        $statsOut = 0;
+        $statsTotal = 0;
+        
+        if ($date) {
+            // Get active (non-discontinued) employees
+            $query = \App\Models\Employee::where('is_active', true)
+                ->whereNull('discontinued_at');
+            
+            // Apply category filter
+            if ($categoryFilter && in_array($categoryFilter, ['academic', 'non_academic'])) {
+                $query->where('category', $categoryFilter);
+            }
+            
+            // Apply roll and name filters
+            if ($rollFilter) {
+                $query->where('roll_number', 'like', "%{$rollFilter}%");
+            }
+            if ($nameFilter) {
+                $query->where(function($q) use ($nameFilter) {
+                    $q->where('name', 'like', "%{$nameFilter}%")
+                      ->orWhere('father_name', 'like', "%{$nameFilter}%");
+                });
+            }
+            
+            $allEmployees = $query->orderBy('name')->get();
+            
+            // Process employees
+            foreach ($allEmployees as $employee) {
+                $hasInMark = $this->hasEmployeeInMark($employee->roll_number, $date);
+                
+                if ($hasInMark) {
+                    // Get IN time (from automatic or manual)
+                    $inTime = $this->getEmployeeInTime($employee->roll_number, $date);
+                    $isManual = $this->isEmployeeManualIn($employee->roll_number, $date);
+                    $markedByIn = $isManual ? $this->getManualInMarkedBy($employee->roll_number, $date) : null;
+                    $hasOut = $this->hasEmployeeOutMark($employee->roll_number, $date);
+                    $outTime = $hasOut ? $this->getEmployeeOutTime($employee->roll_number, $date) : null;
+                    $isManualOut = $hasOut ? $this->isEmployeeManualOut($employee->roll_number, $date) : false;
+                    $markedByOut = $isManualOut ? $this->getManualOutMarkedBy($employee->roll_number, $date) : null;
+                    
+                    // Update counters
+                    $statsIn++;
+                    if ($hasOut) {
+                        $statsOut++;
+                    }
+                    $statsTotal++;
+                    
+                    $presentEmployees->push([
+                        'employee' => $employee,
+                        'in_time' => $inTime,
+                        'out_time' => $outTime,
+                        'is_manual' => $isManual,
+                        'is_manual_out' => $isManualOut,
+                        'marked_by_in' => $markedByIn,
+                        'marked_by_out' => $markedByOut,
+                        'has_out' => $hasOut,
+                    ]);
+                } else {
+                    // Show in absent list
+                    $absentEmployees->push([
+                        'employee' => $employee,
+                    ]);
+                    $statsTotal++;
+                }
+            }
+        }
+        
+        return view('manual-attendance.employee', compact(
+            'date',
+            'presentEmployees',
+            'absentEmployees',
+            'rollFilter',
+            'nameFilter',
+            'categoryFilter',
+            'statsIn',
+            'statsOut',
+            'statsTotal'
+        ));
+    }
+
+    /**
      * Show manual attendance marking page
      * Displays present/absent students for selected batch and date
      */
@@ -115,9 +217,11 @@ class ManualAttendanceController extends Controller
                     // Get IN time (from automatic or manual)
                     $inTime = $this->getInTime($student->roll_number, $date);
                     $isManual = $this->isManualIn($student->roll_number, $date);
+                    $markedByIn = $isManual ? $this->getManualInMarkedBy($student->roll_number, $date) : null;
                     $hasOut = $this->hasOutMark($student->roll_number, $date);
                     $outTime = $hasOut ? $this->getOutTime($student->roll_number, $date) : null;
                     $isManualOut = $hasOut ? $this->isManualOut($student->roll_number, $date) : false;
+                    $markedByOut = $isManualOut ? $this->getManualOutMarkedBy($student->roll_number, $date) : null;
                     
                     // Get WhatsApp status for IN
                     $whatsappIn = $this->getWhatsAppStatus($student->roll_number, $date, $inTime, 'IN');
@@ -129,6 +233,8 @@ class ManualAttendanceController extends Controller
                         'out_time' => $outTime,
                         'is_manual' => $isManual,
                         'is_manual_out' => $isManualOut,
+                        'marked_by_in' => $markedByIn,
+                        'marked_by_out' => $markedByOut,
                         'has_out' => $hasOut,
                         'whatsapp_in' => $whatsappIn,
                         'whatsapp_out' => $whatsappOut,
@@ -474,6 +580,21 @@ class ManualAttendanceController extends Controller
     }
 
     /**
+     * Get the user who marked IN manually (if manual)
+     */
+    private function getManualInMarkedBy(string $rollNumber, string $date): ?\App\Models\User
+    {
+        $manualIn = ManualAttendance::with('markedBy')
+            ->where('roll_number', $rollNumber)
+            ->where('punch_date', $date)
+            ->where('state', 'IN')
+            ->orderBy('punch_time', 'asc')
+            ->first();
+        
+        return $manualIn ? $manualIn->markedBy : null;
+    }
+
+    /**
      * Check if OUT mark is manual
      */
     private function isManualOut(string $rollNumber, string $date): bool
@@ -482,6 +603,21 @@ class ManualAttendanceController extends Controller
             ->where('punch_date', $date)
             ->where('state', 'OUT')
             ->exists();
+    }
+
+    /**
+     * Get the user who marked OUT manually (if manual)
+     */
+    private function getManualOutMarkedBy(string $rollNumber, string $date): ?\App\Models\User
+    {
+        $manualOut = ManualAttendance::with('markedBy')
+            ->where('roll_number', $rollNumber)
+            ->where('punch_date', $date)
+            ->where('state', 'OUT')
+            ->orderBy('punch_time', 'asc')
+            ->first();
+        
+        return $manualOut ? $manualOut->markedBy : null;
     }
     
     /**
@@ -661,5 +797,312 @@ class ManualAttendanceController extends Controller
             $this->punchLogsHasIsManual = Schema::hasColumn('punch_logs', 'is_manual');
         }
         return $this->punchLogsHasIsManual;
+    }
+
+    /**
+     * Mark employee as present (IN) manually
+     * Super Admin only - No WhatsApp sent for employees
+     */
+    public function markEmployeePresent(Request $request)
+    {
+        $request->validate([
+            'roll_number' => 'required|string',
+            'date' => 'required|date',
+            'time' => 'required|date_format:H:i',
+        ]);
+        
+        $rollNumber = $request->input('roll_number');
+        $date = $request->input('date');
+        // Get time from input (HH:MM format) and convert to HH:MM:SS
+        $timeInput = $request->input('time');
+        $time = $timeInput . ':00'; // Add seconds to match database format
+
+        // Prevent manual attendance marking for discontinued employees
+        $employee = \App\Models\Employee::where('roll_number', $rollNumber)->first();
+        if (!$employee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Employee not found.',
+            ], 404);
+        }
+
+        if ($employee->discontinued_at || !$employee->is_active) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot mark attendance for discontinued employee. Historical records are preserved.',
+            ], 403);
+        }
+
+        // Ensure OUT time is not before IN time
+        $firstIn = $this->getEmployeeInTime($rollNumber, $date);
+        if ($firstIn) {
+            $inTs = Carbon::parse($date . ' ' . $firstIn);
+            $outTs = Carbon::parse($date . ' ' . $time);
+            if ($outTs->lt($inTs)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'OUT time cannot be earlier than IN time (' . $firstIn . ').',
+                ], 400);
+            }
+        }
+        
+        // Check if employee already has IN mark for this date
+        if ($this->hasEmployeeInMark($rollNumber, $date)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Employee already marked as present for this date.',
+            ], 400);
+        }
+
+        // Insert into punch_logs so live attendance shows manual IN
+        $this->insertManualPunch($rollNumber, $date, $time, 'IN');
+        
+        // Create manual IN mark
+        ManualAttendance::create([
+            'roll_number' => $rollNumber,
+            'punch_date' => $date,
+            'punch_time' => $time,
+            'state' => 'IN',
+            'marked_by' => auth()->id(),
+            'is_manual' => true,
+            'notes' => 'Manually marked present',
+        ]);
+        
+        // NO WhatsApp sent for employees (as per requirements)
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Employee marked as present successfully.',
+        ]);
+    }
+    
+    /**
+     * Mark employee as OUT manually
+     * Super Admin only - No WhatsApp sent for employees
+     */
+    public function markEmployeeOut(Request $request)
+    {
+        $request->validate([
+            'roll_number' => 'required|string',
+            'date' => 'required|date',
+            'time' => 'required|date_format:H:i',
+        ]);
+        
+        $rollNumber = $request->input('roll_number');
+        $date = $request->input('date');
+        // Get time from input (HH:MM format) and convert to HH:MM:SS
+        $timeInput = $request->input('time');
+        $time = $timeInput . ':00'; // Add seconds to match database format
+        
+        // Prevent manual attendance marking for discontinued employees
+        $employee = \App\Models\Employee::where('roll_number', $rollNumber)->first();
+        if (!$employee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Employee not found.',
+            ], 404);
+        }
+
+        if ($employee->discontinued_at || !$employee->is_active) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot mark attendance for discontinued employee. Historical records are preserved.',
+            ], 403);
+        }
+        
+        // Check if employee has IN mark for this date
+        if (!$this->hasEmployeeInMark($rollNumber, $date)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Employee must be marked as present (IN) first.',
+            ], 400);
+        }
+        
+        // Check if already has OUT mark
+        if ($this->hasEmployeeOutMark($rollNumber, $date)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Employee already marked as OUT for this date.',
+            ], 400);
+        }
+        
+        // Create manual OUT mark
+        ManualAttendance::create([
+            'roll_number' => $rollNumber,
+            'punch_date' => $date,
+            'punch_time' => $time,
+            'state' => 'OUT',
+            'marked_by' => auth()->id(),
+            'is_manual' => true,
+            'notes' => 'Manually marked out',
+        ]);
+
+        // Insert into punch_logs so live attendance shows manual OUT
+        $this->insertManualPunch($rollNumber, $date, $time, 'OUT');
+
+        // NO WhatsApp sent for employees (as per requirements)
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Employee marked as OUT successfully.',
+        ]);
+    }
+    
+    /**
+     * Check if employee has IN mark (automatic or manual) for a date
+     */
+    private function hasEmployeeInMark(string $rollNumber, string $date): bool
+    {
+        // Check manual attendance
+        $hasManualIn = ManualAttendance::where('roll_number', $rollNumber)
+            ->where('punch_date', $date)
+            ->where('state', 'IN')
+            ->exists();
+        
+        if ($hasManualIn) {
+            return true;
+        }
+        
+        // Check automatic punches - need to compute if first punch is IN
+        $punchLogsExists = DB::select("SHOW TABLES LIKE 'punch_logs'");
+        if (empty($punchLogsExists)) {
+            return false;
+        }
+        
+        $punches = DB::table('punch_logs')
+            ->where('employee_id', $rollNumber)
+            ->where('punch_date', $date)
+            ->orderBy('punch_time', 'asc')
+            ->get(['punch_time']);
+        
+        // If has any punches, first one is always IN
+        return $punches->isNotEmpty();
+    }
+    
+    /**
+     * Get employee IN time (from automatic or manual)
+     */
+    private function getEmployeeInTime(string $rollNumber, string $date): ?string
+    {
+        // Check manual attendance first
+        $manualIn = ManualAttendance::where('roll_number', $rollNumber)
+            ->where('punch_date', $date)
+            ->where('state', 'IN')
+            ->orderBy('punch_time', 'asc')
+            ->first();
+        
+        if ($manualIn) {
+            return $manualIn->punch_time;
+        }
+        
+        // Check automatic punches
+        $punchLogsExists = DB::select("SHOW TABLES LIKE 'punch_logs'");
+        if (empty($punchLogsExists)) {
+            return null;
+        }
+        
+        $firstPunch = DB::table('punch_logs')
+            ->where('employee_id', $rollNumber)
+            ->where('punch_date', $date)
+            ->orderBy('punch_time', 'asc')
+            ->first(['punch_time']);
+        
+        return $firstPunch ? $firstPunch->punch_time : null;
+    }
+    
+    /**
+     * Check if employee has OUT mark (automatic or manual) for a date
+     */
+    private function hasEmployeeOutMark(string $rollNumber, string $date): bool
+    {
+        // Check manual attendance
+        $hasManualOut = ManualAttendance::where('roll_number', $rollNumber)
+            ->where('punch_date', $date)
+            ->where('state', 'OUT')
+            ->exists();
+        
+        if ($hasManualOut) {
+            return true;
+        }
+        
+        // Check automatic punches - need to compute if there's a valid OUT
+        $punchLogsExists = DB::select("SHOW TABLES LIKE 'punch_logs'");
+        if (empty($punchLogsExists)) {
+            return false;
+        }
+        
+        // Get all punches and compute pairs to see if there's an OUT
+        $punches = DB::table('punch_logs')
+            ->where('employee_id', $rollNumber)
+            ->where('punch_date', $date)
+            ->orderBy('punch_time', 'asc')
+            ->get(['punch_time']);
+        
+        if ($punches->count() < 2) {
+            return false;
+        }
+        
+        // Simple check: if has 2+ punches with proper gap, likely has OUT
+        // Full computation would be done in computeInOut method
+        return true; // Simplified - full logic in computeInOut
+    }
+
+    /**
+     * Check if employee IN mark is manual
+     */
+    private function isEmployeeManualIn(string $rollNumber, string $date): bool
+    {
+        return ManualAttendance::where('roll_number', $rollNumber)
+            ->where('punch_date', $date)
+            ->where('state', 'IN')
+            ->exists();
+    }
+
+    /**
+     * Check if employee OUT mark is manual
+     */
+    private function isEmployeeManualOut(string $rollNumber, string $date): bool
+    {
+        return ManualAttendance::where('roll_number', $rollNumber)
+            ->where('punch_date', $date)
+            ->where('state', 'OUT')
+            ->exists();
+    }
+    
+    /**
+     * Get employee OUT time (from automatic or manual)
+     */
+    private function getEmployeeOutTime(string $rollNumber, string $date): ?string
+    {
+        // Check manual attendance first
+        $manualOut = ManualAttendance::where('roll_number', $rollNumber)
+            ->where('punch_date', $date)
+            ->where('state', 'OUT')
+            ->orderBy('punch_time', 'asc')
+            ->first();
+        
+        if ($manualOut) {
+            return $manualOut->punch_time;
+        }
+        
+        // Check automatic punches - need to compute pairs to find OUT
+        $punchLogsExists = DB::select("SHOW TABLES LIKE 'punch_logs'");
+        if (empty($punchLogsExists)) {
+            return null;
+        }
+        
+        // Get all punches and compute pairs
+        $punches = DB::table('punch_logs')
+            ->where('employee_id', $rollNumber)
+            ->where('punch_date', $date)
+            ->orderBy('punch_time', 'asc')
+            ->get(['punch_time']);
+        
+        if ($punches->count() < 2) {
+            return null;
+        }
+        
+        // Simple: return second punch if exists (simplified - full logic in computeInOut)
+        return $punches[1]->punch_time ?? null;
     }
 }

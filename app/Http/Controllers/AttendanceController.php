@@ -209,6 +209,7 @@ class AttendanceController extends Controller
         if ($name) {
             $query->where(function ($q) use ($name) {
                 $q->where('s.name', 'like', "%{$name}%")
+                  ->orWhere('e.name', 'like', "%{$name}%")
                   ->orWhere('p.employee_id', 'like', "%{$name}%");
             });
         }
@@ -598,6 +599,7 @@ class AttendanceController extends Controller
         if ($name) {
             $statsQuery->where(function ($q) use ($name) {
                 $q->where('s.name', 'like', "%{$name}%")
+                  ->orWhere('e.name', 'like', "%{$name}%")
                   ->orWhere('p.employee_id', 'like', "%{$name}%");
             });
         }
@@ -1276,17 +1278,27 @@ class AttendanceController extends Controller
             $manualQuery->where('punch_date', '<=', $dateTo);
         }
         
-        $manualMarks = $manualQuery->orderBy('punch_date')
+        $manualMarks = $manualQuery->with('markedBy')->orderBy('punch_date')
             ->orderBy('punch_time')
             ->get();
         
         // Convert manual marks to same format as automatic punches
         $manualPunches = $manualMarks->map(function($mark) {
+            $punchDate = $mark->punch_date;
+            if ($punchDate instanceof \Carbon\Carbon) {
+                $punchDate = $punchDate->format('Y-m-d');
+            } elseif (is_string($punchDate)) {
+                // Already a string, use as is
+            } else {
+                $punchDate = \Carbon\Carbon::parse($punchDate)->format('Y-m-d');
+            }
+            
             return (object) [
-                'punch_date' => $mark->punch_date->format('Y-m-d'),
+                'punch_date' => $punchDate,
                 'punch_time' => $mark->punch_time,
                 'is_manual' => true,
                 'state' => $mark->state,
+                'marked_by' => $mark->markedBy, // Include user who marked it
             ];
         });
         
@@ -1428,6 +1440,8 @@ class AttendanceController extends Controller
                         'out' => null,
                         'is_manual_in' => (bool) ($p->is_manual ?? false),
                         'is_manual_out' => null,
+                        'marked_by_in' => ($p->is_manual ?? false) && isset($p->marked_by) ? $p->marked_by : null,
+                        'marked_by_out' => null,
                     ];
                     $currentPairIndex = count($entries) - 1;
                     $lastAcceptedTime = $current;
@@ -1461,6 +1475,8 @@ class AttendanceController extends Controller
                         'out' => null,
                         'is_manual_in' => (bool) ($p->is_manual ?? false),
                         'is_manual_out' => null,
+                        'marked_by_in' => ($p->is_manual ?? false) && isset($p->marked_by) ? $p->marked_by : null,
+                        'marked_by_out' => null,
                     ];
                     $currentPairIndex = count($entries) - 1;
                 } else {
@@ -1468,6 +1484,7 @@ class AttendanceController extends Controller
                     if ($currentPairIndex >= 0 && isset($entries[$currentPairIndex])) {
                         $entries[$currentPairIndex]['out'] = $p->punch_time;
                         $entries[$currentPairIndex]['is_manual_out'] = (bool) ($p->is_manual ?? false);
+                        $entries[$currentPairIndex]['marked_by_out'] = ($p->is_manual ?? false) && isset($p->marked_by) ? $p->marked_by : null;
                     }
                 }
 
@@ -1817,10 +1834,19 @@ class AttendanceController extends Controller
                 ->toArray();
             $students = array_intersect($students, $filteredStudents);
             
-            // For employees, check if name matches roll number
-            $employees = array_filter($employees, function($r) use ($name) {
-                return strpos($r, $name) !== false;
-            });
+            // For employees, check if name matches employee name or roll number
+            $filteredEmployees = DB::table('employees')
+                ->where(function($q) use ($name) {
+                    $q->where('name', 'like', "%{$name}%")
+                      ->orWhere('roll_number', 'like', "%{$name}%");
+                })
+                ->whereIn('roll_number', $employees)
+                ->where('is_active', true)
+                ->whereNull('discontinued_at')
+                ->pluck('roll_number')
+                ->map(function($r) { return (string)$r; })
+                ->toArray();
+            $employees = array_intersect($employees, $filteredEmployees);
         }
         
         // Calculate total duration for students
